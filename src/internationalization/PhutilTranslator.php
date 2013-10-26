@@ -115,8 +115,10 @@ final class PhutilTranslator {
 
     switch ($this->language) {
 
+      case 'de':
       case 'en':
       case 'en-ac':
+
         list($singular, $plural) = $translations;
         if ($variant == 1) {
           return $singular;
