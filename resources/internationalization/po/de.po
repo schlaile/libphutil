@@ -1,0 +1,305 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2013-10-26 13:03+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: filesystem/Filesystem.php:193
+msgid "Failed to write file data."
+msgstr ""
+
+#: filesystem/Filesystem.php:200
+msgid "Failed to close file handle."
+msgstr ""
+
+#: parser/exception/PhutilTypeMissingParametersException.php:13
+#, php-format
+msgid "Missing required parameters: %s"
+msgstr ""
+
+#: parser/exception/PhutilTypeCheckException.php:13
+#, php-format
+msgid "Parameter '%s' has invalid type."
+msgstr ""
+
+#: parser/exception/PhutilTypeCheckException.php:16
+msgid "Parameter has invalid type."
+msgstr ""
+
+#: parser/exception/PhutilTypeCheckException.php:22
+#, php-format
+msgid "Expected a regular expression, but '%s' is not valid: %s"
+msgstr ""
+
+#: parser/exception/PhutilTypeCheckException.php:27
+#, php-format
+msgid "Expected a regular expression, but value is not valid: %s"
+msgstr ""
+
+#: parser/exception/PhutilTypeCheckException.php:32
+#, php-format
+msgid "Expected type '%s', got type '%s'."
+msgstr ""
+
+#: parser/exception/PhutilTypeExtraParametersException.php:13
+#, php-format
+msgid "Got unexpected parameters: %s"
+msgstr ""
+
+#: markup/engine/remarkup/blockrule/PhutilRemarkupEngineRemarkupInterpreterRule.php:80
+#, php-format
+msgid "No interpreter found: %s"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:13
+msgid "beer"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:14
+#: internationalization/__tests__/PhutilPHTTestCase.php:21
+#: internationalization/__tests__/PhutilPHTTestCase.php:29
+#, php-format
+msgid "%d beer(s)"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:38
+msgid "Sun"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:39
+msgid "Mon"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:40
+msgid "Tue"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:41
+msgid "Wed"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:42
+msgid "Thu"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:43
+msgid "Fri"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:44
+msgid "Sat"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:47
+msgid "Sunday"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:48
+msgid "Monday"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:49
+msgid "Tuesday"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:50
+msgid "Wednesday"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:51
+msgid "Thursday"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:52
+msgid "Friday"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:53
+msgid "Saturday"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:56
+msgid "st"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:57
+msgid "nd"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:58
+msgid "rd"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:59
+msgid "th"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:62
+msgid "January"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:63
+msgid "February"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:64
+msgid "March"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:65
+msgid "April"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:66
+#: internationalization/__tests__/PhutilPHTTestCase.php:80
+msgid "May"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:67
+msgid "June"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:68
+msgid "July"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:69
+msgid "August"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:70
+msgid "September"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:71
+msgid "October"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:72
+msgid "November"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:73
+msgid "December"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:76
+msgid "Jan"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:77
+msgid "Feb"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:78
+msgid "Mar"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:79
+msgid "Apr"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:81
+msgid "Jun"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:82
+msgid "Jul"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:83
+msgid "Aug"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:84
+msgid "Sep"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:85
+msgid "Oct"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:86
+msgid "Nov"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:87
+msgid "Dec"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:90
+msgid "am"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:91
+msgid "pm"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:94
+msgid "AM"
+msgstr ""
+
+#: internationalization/__tests__/PhutilPHTTestCase.php:95
+msgid "PM"
+msgstr ""
+
+#: internationalization/__tests__/PhutilTranslatorTestCase.php:121
+#: internationalization/__tests__/PhutilTranslatorTestCase.php:129
+#: internationalization/__tests__/PhutilTranslatorTestCase.php:132
+msgid "color"
+msgstr ""
+
+#: auth/PhutilAuthAdapterOAuthFacebook.php:99
+#, php-format
+msgid ""
+"This Phabricator install requires you to enable Secure Browsing on your "
+"Facebook account in order to use it to log in to Phabricator. For more "
+"information, see %s"
+msgstr ""
+
+#: auth/PhutilAuthAdapterLDAP.php:262
+#, php-format
+msgid "Unable to set LDAP option '%s' to value '%s'!"
+msgstr ""
+
+#: auth/PhutilAuthAdapterLDAP.php:287
+msgid "Unable to start TLS connection when connecting to LDAP."
+msgstr ""
+
+#: auth/PhutilAuthAdapterLDAP.php:344
+msgid "LDAP search failed."
+msgstr ""
+
+#: auth/PhutilAuthAdapterLDAP.php:352
+msgid "Failed to get LDAP entries from search result."
+msgstr ""
+
+#: auth/PhutilAuthAdapterLDAP.php:369
+#, php-format
+msgid ""
+"LDAP Exception: %s\n"
+"LDAP Error #%d: %s"
+msgstr ""
+
+#: auth/PhutilAuthAdapterLDAP.php:375
+#, php-format
+msgid "LDAP Exception: %s"
+msgstr ""
+
+#: auth/PhutilAuthAdapterLDAP.php:400
+#, php-format
+msgid "Failed to bind to LDAP server (as user '%s')."
+msgstr ""

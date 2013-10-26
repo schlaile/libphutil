@@ -3,11 +3,20 @@
 /**
  * @group internationalization
  */
+abstract class PhutilCustomTranslator {
+  abstract public function translate($text);
+  abstract public function plural_translate($text_array, $variant);
+}
+
+/**
+ * @group internationalization
+ */
 final class PhutilTranslator {
   static private $instance;
 
   private $language = 'en';
   private $translations = array();
+  private $translator = false;
 
   public static function getInstance() {
     if (self::$instance === null) {
@@ -22,6 +31,11 @@ final class PhutilTranslator {
 
   public function setLanguage($language) {
     $this->language = $language;
+    return $this;
+  }
+
+  public function setCustomTranslator($transl) {
+    $this->translator = $transl;
     return $this;
   }
 
@@ -61,10 +75,25 @@ final class PhutilTranslator {
   }
 
   public function translate($text /* , ... */) {
-    $translation = idx($this->translations, $text, $text);
     $args = func_get_args();
-    while (is_array($translation)) {
-      $translation = $this->chooseVariant($translation, next($args));
+    $translation = idx($this->translations, $text, $text);
+
+    if ($this->translator !== false) {
+      if (is_array($translation)) {
+	$variant = next($args);
+	if ($variant instanceof PhutilNumber) {
+	  $variant = $variant->getNumber();
+	}
+
+	$translation = $this->translator->plural_translate(
+			       $translation, $variant);
+      } else {
+	$translation = $this->translator->translate($translation);
+      }
+    } else {
+      while (is_array($translation)) {
+	$translation = $this->chooseVariant($translation, next($args));
+      }
     }
     array_shift($args);
 
@@ -115,7 +144,6 @@ final class PhutilTranslator {
 
     switch ($this->language) {
 
-      case 'de':
       case 'en':
       case 'en-ac':
 
