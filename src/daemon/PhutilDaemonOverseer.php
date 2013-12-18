@@ -165,6 +165,7 @@ EOHELP
 
     declare(ticks = 1);
     pcntl_signal(SIGUSR1, array($this, 'didReceiveKeepaliveSignal'));
+    pcntl_signal(SIGUSR2, array($this, 'didReceiveNotifySignal'));
 
     pcntl_signal(SIGINT,  array($this, 'didReceiveTerminalSignal'));
     pcntl_signal(SIGTERM, array($this, 'didReceiveTerminalSignal'));
@@ -272,6 +273,13 @@ EOHELP
     }
   }
 
+  public function didReceiveNotifySignal($signo) {
+    $pid = $this->childPID;
+    if ($pid) {
+      posix_kill($pid, $signo);
+    }
+  }
+
   public function didReceiveKeepaliveSignal($signo) {
     $this->deadline = time() + $this->deadlineTimeout;
   }
@@ -291,10 +299,10 @@ EOHELP
 
     $this->logMessage('EXIT', $sigmsg, $signo);
 
-    fflush(STDOUT);
-    fflush(STDERR);
-    fclose(STDOUT);
-    fclose(STDERR);
+    @fflush(STDOUT);
+    @fflush(STDERR);
+    @fclose(STDOUT);
+    @fclose(STDERR);
     $this->annihilateProcessGroup();
 
     $this->dispatchEvent(self::EVENT_WILL_EXIT);
