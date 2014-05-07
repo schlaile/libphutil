@@ -15,9 +15,7 @@ final class PhutilUtilsTestCase extends PhutilTestCase {
       $caught = $ex;
     }
 
-    $this->assertEqual(
-      true,
-      ($caught instanceof InvalidArgumentException));
+    $this->assertTrue($caught instanceof InvalidArgumentException);
   }
 
 
@@ -70,9 +68,7 @@ final class PhutilUtilsTestCase extends PhutilTestCase {
       $caught = $ex;
     }
 
-    $this->assertEqual(
-      true,
-      ($caught instanceof InvalidArgumentException));
+    $this->assertTrue($caught instanceof InvalidArgumentException);
   }
 
 
@@ -261,9 +257,7 @@ final class PhutilUtilsTestCase extends PhutilTestCase {
       $caught = $ex;
     }
 
-    $this->assertEqual(
-      true,
-      ($caught instanceof InvalidArgumentException));
+    $this->assertTrue($caught instanceof InvalidArgumentException);
 
     $array = array(
              "foo" => "bar",
@@ -276,9 +270,7 @@ final class PhutilUtilsTestCase extends PhutilTestCase {
       $caught = $ex;
     }
 
-    $this->assertEqual(
-      true,
-      ($caught instanceof InvalidArgumentException));
+    $this->assertTrue($caught instanceof InvalidArgumentException);
 
     $tmp = new TempFile();
     $resource = fopen($tmp, 'r');
@@ -291,9 +283,7 @@ final class PhutilUtilsTestCase extends PhutilTestCase {
 
     fclose($resource);
 
-    $this->assertEqual(
-      true,
-      ($caught instanceof InvalidArgumentException));
+    $this->assertTrue($caught instanceof InvalidArgumentException);
 
   }
 
@@ -461,6 +451,98 @@ final class PhutilUtilsTestCase extends PhutilTestCase {
       phutil_loggable_string("a\x1Fb"));
   }
 
+  public function testPhutilUnits() {
+    $cases = array(
+      '0 seconds in seconds' => 0,
+      '1 second in seconds' => 1,
+      '2 seconds in seconds' => 2,
+      '100 seconds in seconds' => 100,
+      '2 minutes in seconds' => 120,
+      '1 hour in seconds' => 3600,
+      '1 day in seconds' => 86400,
+      '3 days in seconds' => 259200,
+    );
+
+    foreach ($cases as $input => $expect) {
+      $this->assertEqual(
+        $expect,
+        phutil_units($input),
+        'phutil_units("'.$input.'")');
+    }
+
+    $bad_cases = array(
+      'quack',
+      '3 years in seconds',
+      '1 minute in milliseconds',
+      '1 day in days',
+      '-1 minutes in seconds',
+      '1.5 minutes in seconds',
+    );
+
+    foreach ($bad_cases as $input) {
+      $caught = null;
+      try {
+        phutil_units($input);
+      } catch (InvalidArgumentException $ex) {
+        $caught = $ex;
+      }
+
+      $this->assertTrue(
+        ($caught instanceof InvalidArgumentException),
+        'phutil_units("'.$input.'")');
+    }
+  }
+
+  public function testPhutilJSONDecode() {
+    $default = (object)array();
+
+    $cases = array(
+      '{}' => array(),
+      '[]' => array(),
+      '' => $default,
+      '"a"' => $default,
+      '{,}' => $default,
+      'null' => $default,
+      '"null"' => $default,
+      '[1, 2]' => array(1, 2),
+      '{"a":"b"}' => array('a' => 'b'),
+    );
+
+    foreach ($cases as $input => $expect) {
+      $result = phutil_json_decode($input, $default);
+      $this->assertEqual($expect, $result, 'phutil_json_decode('.$input.')');
+    }
+  }
+
+  public function testCensorCredentials() {
+    $cases = array(
+      '' => '',
+      'abc' => 'abc',
+
+      // NOTE: We're liberal about censoring here, since we can't tell
+      // if this is a truncated password at the end of an input string
+      // or a domain name. The version with a "/" isn't censored.
+      'http://example.com' => 'http://xxxxx',
+      'http://example.com/' => 'http://example.com/',
+
+      'http://username@example.com' => 'http://xxxxx@example.com',
+      'http://user:pass@example.com' => 'http://xxxxx@example.com',
+
+      // We censor these because they might be truncated credentials at the end
+      // of the string.
+      'http://user' => 'http://xxxxx',
+      "http://user\n" => "http://xxxxx\n",
+
+      'svn+ssh://user:pass@example.com' => 'svn+ssh://xxxxx@example.com',
+    );
+
+    foreach ($cases as $input => $expect) {
+      $this->assertEqual(
+        $expect,
+        phutil_censor_credentials($input),
+        pht('Credential censoring for: %s', $input));
+    }
+  }
 
 
 }

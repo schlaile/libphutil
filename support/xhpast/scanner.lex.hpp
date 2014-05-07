@@ -69,6 +69,7 @@ typedef int16_t flex_int16_t;
 typedef uint16_t flex_uint16_t;
 typedef int32_t flex_int32_t;
 typedef uint32_t flex_uint32_t;
+typedef uint64_t flex_uint64_t;
 #else
 typedef signed char flex_int8_t;
 typedef short int flex_int16_t;
@@ -173,6 +174,11 @@ typedef void* yyscan_t;
 typedef struct yy_buffer_state *YY_BUFFER_STATE;
 #endif
 
+#ifndef YY_TYPEDEF_YY_SIZE_T
+#define YY_TYPEDEF_YY_SIZE_T
+typedef size_t yy_size_t;
+#endif
+
 /* %if-not-reentrant */
 /* %endif */
 
@@ -180,11 +186,6 @@ typedef struct yy_buffer_state *YY_BUFFER_STATE;
 /* %if-not-reentrant */
 /* %endif */
 /* %endif */
-
-#ifndef YY_TYPEDEF_YY_SIZE_T
-#define YY_TYPEDEF_YY_SIZE_T
-typedef size_t yy_size_t;
-#endif
 
 #ifndef YY_STRUCT_YY_BUFFER_STATE
 #define YY_STRUCT_YY_BUFFER_STATE
@@ -208,7 +209,7 @@ struct yy_buffer_state
 	/* Number of characters read into yy_ch_buf, not including EOB
 	 * characters.
 	 */
-	int yy_n_chars;
+	yy_size_t yy_n_chars;
 
 	/* Whether we "own" the buffer - i.e., we know we created it,
 	 * and can realloc() it to grow it, and should free() it to
@@ -264,7 +265,7 @@ void xhpastpop_buffer_state (yyscan_t yyscanner );
 
 YY_BUFFER_STATE xhpast_scan_buffer (char *base,yy_size_t size ,yyscan_t yyscanner );
 YY_BUFFER_STATE xhpast_scan_string (yyconst char *yy_str ,yyscan_t yyscanner );
-YY_BUFFER_STATE xhpast_scan_bytes (yyconst char *bytes,int len ,yyscan_t yyscanner );
+YY_BUFFER_STATE xhpast_scan_bytes (yyconst char *bytes,yy_size_t len ,yyscan_t yyscanner );
 
 /* %endif */
 
@@ -295,10 +296,9 @@ void xhpastfree (void * ,yyscan_t yyscanner );
 #define PHP_HEREDOC_START 5
 #define PHP_HEREDOC_NSTART 6
 #define PHP_HEREDOC_NEWLINE 7
-#define PHP_HEREDOC_DATA 8
-#define PHP_NO_RESERVED_WORDS 9
-#define PHP_NO_RESERVED_WORDS_PERSIST 10
-#define PHP_ 11
+#define PHP_NO_RESERVED_WORDS 8
+#define PHP_NO_RESERVED_WORDS_PERSIST 9
+#define PHP_ 10
 
 #endif
 
@@ -356,7 +356,7 @@ FILE *xhpastget_out (yyscan_t yyscanner );
 
 void xhpastset_out  (FILE * out_str ,yyscan_t yyscanner );
 
-int xhpastget_leng (yyscan_t yyscanner );
+yy_size_t xhpastget_leng (yyscan_t yyscanner );
 
 char *xhpastget_text (yyscan_t yyscanner );
 
@@ -463,7 +463,7 @@ extern int xhpastlex \
 #undef YY_DECL
 #endif
 
-#line 398 "scanner.l"
+#line 392 "scanner.l"
 
 
 #line 470 "scanner.lex.hpp"

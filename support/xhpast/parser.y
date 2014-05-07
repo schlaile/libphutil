@@ -69,7 +69,7 @@ static void replacestr(string &source, const string &find, const string &rep) {
 
 %}
 
-%expect 9
+%expect 5
 // 2: PHP's if/else grammar
 // 7: expr '[' dim_offset ']' -- shift will default to first grammar
 %name-prefix = "xhpast"
@@ -184,6 +184,12 @@ static void replacestr(string &source, const string &find, const string &rep) {
 %token T_NS_C
 %token T_DIR
 %token T_NS_SEPARATOR
+%token T_INSTEADOF
+%token T_CALLABLE
+%token T_TRAIT
+%token T_TRAIT_C
+%token T_YIELD
+%token T_FINALLY
 
 %%
 
@@ -502,6 +508,10 @@ unticked_statement:
     $$ = NNEW(n_STATEMENT)->appendChild($1);
     NMORE($$, $2);
   }
+| yield_expr ';' {
+    $$ = NNEW(n_STATEMENT)->appendChild($1);
+    NMORE($$, $2);
+  }
 | T_UNSET '(' unset_variables ')' ';' {
     NMORE($3, $4);
     NLMORE($3, $1);
@@ -551,7 +561,7 @@ unticked_statement:
     $$ = NNEW(n_STATEMENT)->appendChild(NNEW(n_EMPTY));
     NMORE($$, $1);
   }
-| T_TRY '{' inner_statement_list '}' T_CATCH '(' fully_qualified_class_name T_VARIABLE ')' '{' inner_statement_list '}' additional_catches {
+| T_TRY '{' inner_statement_list '}' T_CATCH '(' fully_qualified_class_name T_VARIABLE ')' '{' inner_statement_list '}' additional_catches finally_statement {
     NTYPE($1, n_TRY);
     $1->appendChild(NEXPAND($2, $3, $4));
 
@@ -561,6 +571,7 @@ unticked_statement:
     $5->appendChild(NEXPAND($10, $11, $12));
 
     $1->appendChild(NNEW(n_CATCH_LIST)->appendChild($5)->appendChildren($13));
+    $1->appendChild($14);
 
     $$ = NNEW(n_STATEMENT)->appendChild($1);
   }
@@ -588,6 +599,19 @@ additional_catches:
     $$ = NNEW(n_EMPTY);
   }
 ;
+
+finally_statement:
+  /* empty */ {
+    $$ = NNEW(n_EMPTY);
+  }
+| T_FINALLY '{' inner_statement_list '}' {
+    NTYPE($1, n_FINALLY);
+    $1->appendChild($3);
+    NMORE($1, $4);
+    $$ = $1;
+  }
+;
+
 
 non_empty_additional_catches:
   additional_catch {
@@ -701,6 +725,10 @@ class_entry_type:
     $2->appendChild(NTYPE($1, n_STRING));
 
     $$ = $2;
+  }
+| T_TRAIT {
+    $$ = NNEW(n_CLASS_ATTRIBUTES);
+    $$->appendChild(NTYPE($1, n_STRING));
   }
 ;
 
@@ -1011,6 +1039,9 @@ optional_class_type:
 | T_ARRAY {
     $$ = NTYPE($1, n_TYPE_NAME);
   }
+| T_CALLABLE {
+    $$ = NTYPE($1, n_TYPE_NAME);
+  }
 ;
 
 function_call_parameter_list:
@@ -1125,6 +1156,9 @@ class_statement:
     $$ = NNEW(n_STATEMENT)->appendChild($1);
     NMORE($$, $2);
   }
+| trait_use_statement {
+    $$ = $1;
+  }
 | method_modifiers function {
     yyextra->old_expecting_xhp_class_statements = yyextra->expecting_xhp_class_statements;
     yyextra->expecting_xhp_class_statements = false;
@@ -1142,6 +1176,124 @@ class_statement:
     $$ = NNEW(n_STATEMENT)->appendChild($$);
   }
 ;
+
+trait_use_statement:
+  T_USE trait_list trait_adaptations {
+    $$ = NTYPE($1, n_TRAIT_USE);
+    $$->appendChildren($2);
+    $$->appendChild($3);
+  }
+;
+
+trait_list:
+  fully_qualified_class_name {
+    $$ = NNEW(n_TRAIT_USE_LIST)->appendChild($1);
+  }
+| trait_list ',' fully_qualified_class_name {
+    $$ = $1->appendChild($3);
+  }
+;
+
+trait_adaptations:
+  ';' {
+    $$ = NNEW(n_EMPTY);
+  }
+| '{' trait_adaptation_list '}' {
+    $$ = NEXPAND($1, $2, $3);
+  }
+;
+
+trait_adaptation_list:
+  /* empty */ {
+    $$ = NNEW(n_TRAIT_ADAPTATION_LIST);
+  }
+| non_empty_trait_adaptation_list {
+    $$ = $1;
+  }
+;
+
+non_empty_trait_adaptation_list:
+  trait_adaptation_statement {
+    $$ = NNEW(n_TRAIT_ADAPTATION_LIST);
+    $$->appendChild($1);
+  }
+|  non_empty_trait_adaptation_list trait_adaptation_statement {
+    $1->appendChild($2);
+    $$ = $1;
+  }
+;
+
+trait_adaptation_statement:
+  trait_precedence ';' {
+    $$ = NMORE($1, $2);
+  }
+|  trait_alias ';' {
+    $$ = NMORE($1, $2);
+  }
+;
+
+trait_precedence:
+  trait_method_reference_fully_qualified T_INSTEADOF trait_reference_list  {
+    $$ = NNEW(n_TRAIT_INSTEADOF);
+    $$->appendChild($1);
+    $$->appendChild($3);
+  }
+;
+
+trait_reference_list:
+  fully_qualified_class_name {
+    $$ = NNEW(n_TRAIT_REFERENCE_LIST);
+    $$->appendChild($1);
+  }
+| trait_reference_list ',' fully_qualified_class_name  {
+    $1->appendChild($3);
+    $$ = $1;
+  }
+;
+
+trait_method_reference:
+  T_STRING {
+    $$ = NNEW(n_TRAIT_METHOD_REFERENCE);
+    $$->appendChild(NTYPE($1, n_STRING));
+  }
+|  trait_method_reference_fully_qualified {
+    $$ = $1;
+  }
+;
+
+trait_method_reference_fully_qualified:
+  fully_qualified_class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING {
+    NTYPE($2, n_TRAIT_METHOD_REFERENCE);
+    NEXPAND($1, $2, NTYPE($3, n_STRING));
+    $$ = $2;
+  }
+;
+
+trait_alias:
+  trait_method_reference T_AS trait_modifiers T_STRING {
+    $$ = NNEW(n_TRAIT_AS);
+    $$->appendChild($1);
+    $$->appendChild($3);
+    $$->appendChild(NTYPE($4, n_STRING));
+  }
+|  trait_method_reference T_AS member_modifier {
+    $$ = NNEW(n_TRAIT_AS);
+    $$->appendChild($1);
+    $$->appendChild($3);
+    $$->appendChild(NNEW(n_EMPTY));
+  }
+;
+
+trait_modifiers:
+  /* empty */  {
+    $$ = NNEW(n_EMPTY);
+  }
+|  member_modifier  {
+    $$ = NNEW(n_METHOD_MODIFIER_LIST);
+    $$->appendChild(NTYPE($1, n_STRING));
+  }
+;
+
 
 method_body:
   ';' /* abstract method */ {
@@ -1307,12 +1459,6 @@ expr_without_variable:
     $3->appendChild($4);
 
     $$->appendChild($3);
-  }
-| T_NEW class_name_reference ctor_arguments {
-    NTYPE($1, n_NEW);
-    $1->appendChild($2);
-    $1->appendChild($3);
-    $$ = $1;
   }
 | T_CLONE expr {
     $$ = NNEW(n_UNARY_PREFIX_EXPRESSION);
@@ -1595,11 +1741,8 @@ expr_without_variable:
     $$->appendChild(NTYPE($2, n_OPERATOR));
     $$->appendChild($3);
   }
-| '(' expr ')' {
-    NSPAN($1, n_PARENTHETICAL_EXPRESSION, $3);
-    $1->appendChild($2);
-    $$ = $1;
-  }
+| parenthesis_expr
+| new_expr
 | expr '?' expr ':' expr {
     $$ = NNEW(n_TERNARY_EXPRESSION);
     $$->appendChild($1);
@@ -1624,16 +1767,6 @@ expr_without_variable:
     $$->appendChild($2);
   }
 | T_STRING_CAST expr {
-    $$ = NNEW(n_CAST_EXPRESSION);
-    $$->appendChild(NTYPE($1, n_CAST));
-    $$->appendChild($2);
-  }
-| T_UNICODE_CAST expr {
-    $$ = NNEW(n_CAST_EXPRESSION);
-    $$->appendChild(NTYPE($1, n_CAST));
-    $$->appendChild($2);
-  }
-| T_BINARY_CAST expr {
     $$ = NNEW(n_CAST_EXPRESSION);
     $$->appendChild(NTYPE($1, n_CAST));
     $$->appendChild($2);
@@ -1668,21 +1801,23 @@ expr_without_variable:
     $$->appendChild(NTYPE($1, n_OPERATOR));
     $$->appendChild($2);
   }
-| T_ARRAY '(' array_pair_list ')' {
-    NTYPE($1, n_ARRAY_LITERAL);
-    $1->appendChild($3);
-    NMORE($1, $4);
-    $$ = $1;
-  }
 | T_BACKTICKS_EXPR {
     NTYPE($1, n_BACKTICKS_EXPRESSION);
     $$ = $1;
   }
 | scalar
+| combined_scalar_offset
+| combined_scalar
 | T_PRINT expr {
     $$ = NNEW(n_UNARY_PREFIX_EXPRESSION);
     $$->appendChild(NTYPE($1, n_OPERATOR));
     $$->appendChild($2);
+  }
+| T_YIELD {
+    NTYPE($1, n_YIELD);
+    $1->appendChild(NNEW(n_EMPTY));
+    $1->appendChild(NNEW(n_EMPTY));
+    $$ = $1;
   }
 | function is_reference '(' parameter_list ')' lexical_vars '{' inner_statement_list '}' {
     NSPAN($1, n_FUNCTION_DECLARATION, $9);
@@ -1711,6 +1846,33 @@ expr_without_variable:
     $2->appendChild(NEXPAND($8, $9, $10));
 
     $$ = $2;
+  }
+;
+
+yield_expr:
+  T_YIELD expr_without_variable {
+    NTYPE($1, n_YIELD);
+    $2->appendChild(NNEW(n_EMPTY));
+    $1->appendChild($2);
+    $$ = $1;
+  }
+| T_YIELD variable {
+    NTYPE($1, n_YIELD);
+    $2->appendChild(NNEW(n_EMPTY));
+    $1->appendChild($2);
+    $$ = $1;
+  }
+|  T_YIELD expr T_DOUBLE_ARROW expr_without_variable {
+    NTYPE($1, n_YIELD);
+    $1->appendChild($2);
+    $1->appendChild($4);
+    $$ = $1;
+  }
+|  T_YIELD expr T_DOUBLE_ARROW variable {
+    NTYPE($1, n_YIELD);
+    $1->appendChild($2);
+    $1->appendChild($4);
+    $$ = $1;
   }
 ;
 
@@ -1920,6 +2082,9 @@ common_scalar:
 | T_METHOD_C {
     $$ = NTYPE($1, n_MAGIC_SCALAR);
   }
+| T_TRAIT_C {
+    $$ = NTYPE($1, n_MAGIC_SCALAR);
+  }
 | T_FUNC_C {
     $$ = NTYPE($1, n_MAGIC_SCALAR);
   }
@@ -1956,6 +2121,12 @@ static_scalar: /* compile-time evaluated scalars */
     NTYPE($1, n_ARRAY_LITERAL);
     $1->appendChild($3);
     NMORE($1, $4);
+    $$ = $1;
+  }
+| '[' static_array_pair_list ']' {
+    NTYPE($1, n_ARRAY_LITERAL);
+    $1->appendChild($2);
+    NMORE($1, $3);
     $$ = $1;
   }
 | static_class_constant
@@ -2089,10 +2260,30 @@ variable_property:
   }
 ;
 
-method_or_not:
+array_method_dereference:
+  array_method_dereference '[' dim_offset ']' {
+    $$ = NNEW(n_INDEX_ACCESS);
+    $$->appendChild($1);
+    $$->appendChild($3);
+    NMORE($$, $4);
+  }
+| method '[' dim_offset ']' {
+    $$ = NNEW(n_INDEX_ACCESS);
+    $$->appendChild($1);
+    $$->appendChild($3);
+    NMORE($$, $4);
+  }
+;
+
+method:
   '(' function_call_parameter_list ')' {
     $$ = NEXPAND($1, $2, $3);
   }
+;
+
+method_or_not:
+  method
+| array_method_dereference
 | /* empty */ {
     $$ = NNEW(n_EMPTY);
   }
@@ -2131,13 +2322,32 @@ variable_class_name:
   reference_variable
 ;
 
+array_function_dereference:
+  array_function_dereference '[' dim_offset ']' {
+    $$ = NNEW(n_INDEX_ACCESS);
+    $$->appendChild($1);
+    $$->appendChild($3);
+    NMORE($$, $4);
+  }
+| function_call '[' dim_offset ']' {
+    $$ = NNEW(n_INDEX_ACCESS);
+    $$->appendChild($1);
+    $$->appendChild($3);
+    NMORE($$, $4);
+  }
+;
+
 base_variable_with_function_calls:
   base_variable
+| array_function_dereference
 | function_call
 ;
 
 base_variable:
   reference_variable
+| '(' new_expr ')' {
+    $$ = NEXPAND($1, $2, $3);
+  }
 | simple_indirect_reference reference_variable {
     xhpast::Node *last = $1;
     NMORE($1, $2);
@@ -2199,7 +2409,7 @@ object_dim_list:
     $$ = NNEW(n_INDEX_ACCESS);
     $$->appendChild($1);
     $$->appendChild($3);
-    NMORE($$, $4)
+    NMORE($$, $4);
   }
 | object_dim_list '{' expr '}' {
     $$ = NNEW(n_INDEX_ACCESS);
@@ -2383,6 +2593,62 @@ isset_variables:
   }
 ;
 
+parenthesis_expr:
+  '(' expr ')' {
+    NSPAN($1, n_PARENTHETICAL_EXPRESSION, $3);
+    $1->appendChild($2);
+    $$ = $1;
+  }
+| '(' yield_expr ')' {
+    $$ = NEXPAND($1, $2, $3);
+  }
+;
+
+combined_scalar_offset:
+  combined_scalar '[' dim_offset ']' {
+    $$ = NNEW(n_INDEX_ACCESS);
+    $$->appendChild($1);
+    $$->appendChild($3);
+    NMORE($$, $4);
+  }
+| combined_scalar_offset '[' dim_offset ']' {
+    $$ = NNEW(n_INDEX_ACCESS);
+    $$->appendChild($1);
+    $$->appendChild($3);
+    NMORE($$, $4);
+  }
+| T_CONSTANT_ENCAPSED_STRING '[' dim_offset ']' {
+    $$ = NNEW(n_INDEX_ACCESS);
+    $$->appendChild(NTYPE($1, n_STRING_SCALAR));
+    $$->appendChild($3);
+    NMORE($$, $4);
+  }
+;
+
+combined_scalar:
+  T_ARRAY '(' array_pair_list ')' {
+    NTYPE($1, n_ARRAY_LITERAL);
+    $1->appendChild($3);
+    NMORE($1, $4);
+    $$ = $1;
+  }
+| '[' array_pair_list ']' {
+    NTYPE($1, n_ARRAY_LITERAL);
+    $1->appendChild($2);
+    NMORE($1, $3);
+    $$ = $1;
+  }
+;
+
+new_expr:
+  T_NEW class_name_reference ctor_arguments {
+    NTYPE($1, n_NEW);
+    $1->appendChild($2);
+    $1->appendChild($3);
+    $$ = $1;
+  }
+;
+
 class_constant:
   class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING {
     $$ = NNEW(n_CLASS_STATIC_ACCESS);
@@ -2396,24 +2662,6 @@ class_constant:
   }
 ;
 
-// Fix the "bug" in PHP's grammar where you can't chain the [] operator on a
-// function call.
-// This introduces some shift/reduce conflicts. We want the shift here to fall
-// back to regular PHP grammar. In the case where it's an extension of the PHP
-// grammar our code gets picked up.
-expr_without_variable:
-  expr '[' dim_offset ']' {
-    if (yyextra->idx_expr) {
-      yyextra->used = true;
-    }
-    $$ = NNEW(n_INDEX_ACCESS);
-    $$->appendChild($1);
-    $$->appendChild($3);
-    NMORE($$, $4);
-  }
-;
-
-
 %%
 
 const char* yytokname(int tok) {
@@ -2422,3 +2670,8 @@ const char* yytokname(int tok) {
   }
   return yytname[YYTRANSLATE(tok)];
 }
+
+
+/*
+ * vim: tabstop=2 expandtab shiftwidth=2 softtabstop=2
+ */

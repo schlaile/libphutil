@@ -15,6 +15,12 @@
  *   %C (Raw Command)
  *     Passes the argument through without escaping. Dangerous!
  *
+ *   %R
+ *     A more "readable" version of "%s". This will try to print the command
+ *     without any escaping if it contains only characters which are safe
+ *     in any context. The intent is to produce prettier human-readable
+ *     commands.
+ *
  * Generally, you should invoke shell commands via execx() rather than by
  * calling csprintf() directly.
  *
@@ -73,12 +79,18 @@ function xsprintf_command($userdata, &$pattern, &$pos, &$value, &$length) {
       $type = 's';
 
       // Check that the value is a non-empty array.
-      if (!is_array($value) || !$value) {
-        throw new Exception("Expected a non-empty array for %Ls conversion.");
+      if (!is_array($value)) {
+        throw new Exception("Expected an array for %Ls conversion.");
       }
 
       // Convert the list of strings to a single string.
       $value = implode(' ', array_map('escapeshellarg', $value));
+      break;
+    case 'R':
+      if (!preg_match('(^[a-zA-Z0-9:/@._-]+$)', $value)) {
+        $value = escapeshellarg($value);
+      }
+      $type = 's';
       break;
     case 's':
       $value = escapeshellarg($value);

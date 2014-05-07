@@ -3,8 +3,6 @@
 /**
  * Simple event store for service calls, so they can be printed to stdout or
  * displayed in a debug console.
- *
- * @group util
  */
 final class PhutilServiceProfiler {
 
@@ -111,7 +109,7 @@ final class PhutilServiceProfiler {
           }
           break;
         case 'http':
-          $desc = $data['uri'];
+          $desc = phutil_censor_credentials($data['uri']);
           break;
         case 'lint':
           $desc = $data['linter'];

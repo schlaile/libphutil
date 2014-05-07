@@ -1,9 +1,7 @@
 <?php
 
 /**
- * Test cases for @{class:PhutilGitURI} parser.
- *
- * @group util
+ * @covers PhutilGitURI
  */
 final class PhutilGitURITestCase extends PhutilTestCase {
 
@@ -19,6 +17,11 @@ final class PhutilGitURITestCase extends PhutilTestCase {
     $this->assertEqual('host.com', $uri->getDomain());
     $this->assertEqual('path/to/something', $uri->getPath());
     $this->assertEqual('host.com:path/to/something', (string)$uri);
+  }
+
+  public function testStrictGitURIParsingOfLeadingWhitespace() {
+    $uri = new PhutilURI(' user@example.com');
+    $this->assertEqual('', $uri->getDomain());
   }
 
 

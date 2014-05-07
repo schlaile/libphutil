@@ -11,8 +11,8 @@ final class PhutilRemarkupEngineRemarkupHeaderBlockRule
     if (preg_match('/^(={1,5}).*+$/', $lines[$cursor])) {
       $num_lines = 1;
     } else {
-      if (isset($lines[$cursor+1])) {
-        $line = $lines[$cursor] . $lines[$cursor+1];
+      if (isset($lines[$cursor + 1])) {
+        $line = $lines[$cursor] . $lines[$cursor + 1];
         if (preg_match('/^([^\n]+)\n[-=]{2,}\s*$/', $line)) {
           $num_lines = 2;
           $cursor++;
@@ -33,7 +33,7 @@ final class PhutilRemarkupEngineRemarkupHeaderBlockRule
 
   const KEY_HEADER_TOC = 'headers.toc';
 
-  public function markupText($text) {
+  public function markupText($text, $children) {
     $text = trim($text);
 
     $lines = phutil_split_lines($text);

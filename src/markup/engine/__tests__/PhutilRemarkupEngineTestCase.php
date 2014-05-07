@@ -75,6 +75,7 @@ final class PhutilRemarkupEngineTestCase extends PhutilTestCase {
       'uri.allowed-protocols',
       array(
         'http' => true,
+        'mailto' => true,
       ));
 
     $rules = array();
@@ -85,9 +86,11 @@ final class PhutilRemarkupEngineTestCase extends PhutilTestCase {
     $rules[] = new PhutilRemarkupRuleBold();
     $rules[] = new PhutilRemarkupRuleItalic();
     $rules[] = new PhutilRemarkupRuleDel();
+    $rules[] = new PhutilRemarkupRuleUnderline();
 
     $blocks = array();
     $blocks[] = new PhutilRemarkupEngineRemarkupQuotesBlockRule();
+    $blocks[] = new PhutilRemarkupEngineRemarkupReplyBlockRule();
     $blocks[] = new PhutilRemarkupEngineRemarkupHeaderBlockRule();
     $blocks[] = new PhutilRemarkupEngineRemarkupHorizontalRuleBlockRule();
     $blocks[] = new PhutilRemarkupEngineRemarkupCodeBlockRule();

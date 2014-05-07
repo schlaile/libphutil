@@ -21,7 +21,7 @@ final class PhutilUTF8TestCase extends PhutilTestCase {
     // For some reason my laptop is segfaulting on long inputs inside
     // preg_match(). Forestall this craziness in the common case, at least.
     phutil_utf8ize(str_repeat('x', 1024 * 1024));
-    $this->assertEqual(true, true);
+    $this->assertTrue(true);
   }
 
   public function testUTF8izeInvalidUTF8Fixed() {
@@ -277,7 +277,7 @@ final class PhutilUTF8TestCase extends PhutilTestCase {
     } catch (Exception $ex) {
       $caught = $ex;
     }
-    $this->assertEqual(true, (bool)$caught, 'Requires source encoding.');
+    $this->assertTrue((bool)$caught, 'Requires source encoding.');
 
     $caught = null;
     try {
@@ -285,7 +285,7 @@ final class PhutilUTF8TestCase extends PhutilTestCase {
     } catch (Exception $ex) {
       $caught = $ex;
     }
-    $this->assertEqual(true, (bool)$caught, 'Requires target encoding.');
+    $this->assertTrue((bool)$caught, 'Requires target encoding.');
   }
 
 
@@ -309,7 +309,7 @@ final class PhutilUTF8TestCase extends PhutilTestCase {
       $caught = $ex;
     }
 
-    $this->assertEqual(true, (bool)$caught, 'Conversion with bogus encoding.');
+    $this->assertTrue((bool)$caught, 'Conversion with bogus encoding.');
   }
 
 
@@ -428,6 +428,58 @@ final class PhutilUTF8TestCase extends PhutilTestCase {
       array(" \xCD\xA0\xCD\xA0", 'c'),
       phutil_utf8v_combined($string));
 
+  }
+
+  public function testUTF8BMPSegfaults() {
+    // This test case fails by segfaulting, or passes by not segfaulting. See
+    // the function implementation for details.
+    $input = str_repeat("\xEF\xBF\xBF", 1024 * 32);
+    phutil_is_utf8_with_only_bmp_characters($input);
+
+    $this->assertTrue(true);
+  }
+
+  public function testUTF8BMP() {
+    $tests = array(
+      ""  => array(true, true, "empty string"),
+      "a" => array(true, true, "a"),
+      "a\xCD\xA0\xCD\xA0" => array(true, true, "a with combining"),
+      "\xE2\x98\x83" => array(true, true, "snowman"),
+
+      // This is the last character in BMP, U+FFFF.
+      "\xEF\xBF\xBF" => array(true, true, "U+FFFF"),
+
+      // This isn't valid.
+      "\xEF\xBF\xC0" => array(false, false, "Invalid, byte range."),
+
+      // This is the first character above BMP, U+10000.
+      "\xF0\x90\x80\x80" => array(true, false, "U+10000"),
+      "\xF0\x9D\x84\x9E" => array(true, false, "gclef"),
+
+      "musical \xF0\x9D\x84\x9E g-clef" => array(true, false, "gclef text"),
+      "\xF0\x9D\x84" => array(false, false, "Invalid, truncated."),
+
+      "\xE0\x80\x80" => array(false, false, "Nonminimal 3-byte character."),
+
+      // Partial BMP characters.
+      "\xCD" => array(false, false, "Partial 2-byte character."),
+      "\xE0\xA0" => array(false, false, "Partial BMP 0xE0 character."),
+      "\xE2\x98" => array(false, false, "Partial BMP cahracter."),
+    );
+
+    foreach ($tests as $input => $test) {
+      list($expect_utf8, $expect_bmp, $test_name) = $test;
+
+      $this->assertEqual(
+        $expect_utf8,
+        phutil_is_utf8($input),
+        pht('is_utf(%s)', $test_name));
+
+      $this->assertEqual(
+        $expect_bmp,
+        phutil_is_utf8_with_only_bmp_characters($input),
+        pht('is_utf_bmp(%s)', $test_name));
+    }
   }
 
 }

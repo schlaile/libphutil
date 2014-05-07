@@ -2,8 +2,6 @@
 
 /**
  * Basic URI parser object.
- *
- * @group util
  */
 final class PhutilURI {
 
@@ -18,6 +16,15 @@ final class PhutilURI {
 
   public function __construct($uri) {
     $parts = parse_url($uri);
+
+    // The parse_url() call will accept URIs with leading whitespace, but many
+    // other tools (like git) will not. See T4913 for a specific example. If
+    // the input string has leading whitespace, fail the parse.
+    if ($parts) {
+      if (ltrim($uri) != $uri) {
+        $parts = false;
+      }
+    }
 
     // NOTE: `parse_url()` is very liberal about host names; fail the parse if
     // the host looks like garbage.
@@ -35,8 +42,8 @@ final class PhutilURI {
     // stringyness is to preserve API compatibility and
     // allow the tests to continue passing
     $this->protocol = idx($parts, 'scheme', '');
-    $this->user     = idx($parts, 'user', '');
-    $this->pass     = idx($parts, 'pass', '');
+    $this->user     = rawurldecode(idx($parts, 'user', ''));
+    $this->pass     = rawurldecode(idx($parts, 'pass', ''));
     $this->domain   = idx($parts, 'host', '');
     $this->port     = (string)idx($parts, 'port', '');
     $this->path     = idx($parts, 'path', '');
@@ -54,10 +61,11 @@ final class PhutilURI {
       $protocol = nonempty($this->protocol, 'http');
 
       $auth = '';
-      if ($this->user && $this->pass) {
-        $auth = $this->user.':'.$this->pass.'@';
-      } else if ($this->user) {
-        $auth = $this->user.'@';
+      if (strlen($this->user) && strlen($this->pass)) {
+        $auth = phutil_escape_uri($this->user).':'.
+                phutil_escape_uri($this->pass).'@';
+      } else if (strlen($this->user)) {
+        $auth = phutil_escape_uri($this->user).'@';
       }
 
       $prefix = $protocol.'://'.$auth.$this->domain;
@@ -171,4 +179,3 @@ final class PhutilURI {
   }
 
 }
-

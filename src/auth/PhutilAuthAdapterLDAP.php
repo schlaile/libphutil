@@ -1,12 +1,15 @@
 <?php
 
+/**
+ * Retrieve identify information from LDAP accounts.
+ */
 final class PhutilAuthAdapterLDAP extends PhutilAuthAdapter {
 
   private $hostname;
   private $port = 389;
 
   private $baseDistinguishedName;
-  private $searchAttribute;
+  private $searchAttributes = array();
   private $usernameAttribute;
   private $realNameAttributes = array();
   private $ldapVersion = 3;
@@ -15,7 +18,7 @@ final class PhutilAuthAdapterLDAP extends PhutilAuthAdapter {
   private $anonymousUsername;
   private $anonymousPassword;
   private $activeDirectoryDomain;
-  private $searchFirst;
+  private $alwaysSearch;
 
   private $loginUsername;
   private $loginPassword;
@@ -46,8 +49,8 @@ final class PhutilAuthAdapterLDAP extends PhutilAuthAdapter {
     return $this;
   }
 
-  public function setSearchAttribute($search_attribute) {
-    $this->searchAttribute = $search_attribute;
+  public function setSearchAttributes(array $search_attributes) {
+    $this->searchAttributes = $search_attributes;
     return $this;
   }
 
@@ -97,13 +100,13 @@ final class PhutilAuthAdapterLDAP extends PhutilAuthAdapter {
     return $this;
   }
 
-  public function setSearchFirst($search) {
-    $this->searchFirst = $search;
+  public function setActiveDirectoryDomain($domain) {
+    $this->activeDirectoryDomain = $domain;
     return $this;
   }
 
-  public function setActiveDirectoryDomain($domain) {
-    $this->activeDirectoryDomain = $domain;
+  public function setAlwaysSearch($always_search) {
+    $this->alwaysSearch = $always_search;
     return $this;
   }
 
@@ -126,7 +129,7 @@ final class PhutilAuthAdapterLDAP extends PhutilAuthAdapter {
   public function readLDAPRecordAccountID(array $record) {
     $key = $this->usernameAttribute;
     if (!strlen($key)) {
-      $key = $this->searchAttribute;
+      $key = head($this->searchAttributes);
     }
     return $this->readLDAPData($record, $key);
   }
@@ -177,8 +180,7 @@ final class PhutilAuthAdapterLDAP extends PhutilAuthAdapter {
     //     0 => 'actual-value-we-want',
     //   )
     //
-    // However, in at least the case of 'dn' after we "searchFirst", the
-    // property is a bare string.
+    // However, in at least the case of 'dn', the property is a bare string.
 
     if (is_scalar($list) && strlen($list)) {
       return $list;
@@ -189,36 +191,66 @@ final class PhutilAuthAdapterLDAP extends PhutilAuthAdapter {
     }
   }
 
+  private function formatLDAPAttributeSearch($attribute, $login_user) {
+    // If the attribute contains the literal token "${login}", treat it as a
+    // query and substitute the user's login name for the token.
+
+    if (strpos($attribute, '${login}') !== false) {
+      $escaped_user = ldap_sprintf('%S', $login_user);
+      $attribute = str_replace('${login}', $escaped_user, $attribute);
+      return $attribute;
+    }
+
+    // Otherwise, treat it as a simple attribute search.
+
+    return ldap_sprintf(
+      '%Q=%S',
+      $attribute,
+      $login_user);
+  }
+
   private function loadLDAPUserData() {
     $conn = $this->establishConnection();
 
     $login_user = $this->loginUsername;
     $login_pass = $this->loginPassword;
-    $distinguished_name = ldap_sprintf(
-      '%Q=%s,%Q',
-      $this->searchAttribute,
-      $login_user,
-      $this->baseDistinguishedName);
 
-    if ($this->searchFirst) {
-      $user = $this->searchLDAPForUser($this->usernameAttribute, $login_user);
-      if (!$user) {
-        throw new Exception("Invalid credentials.");
+    if ($this->shouldBindWithoutIdentity()) {
+      $distinguished_name = null;
+      $search_query = null;
+      foreach ($this->searchAttributes as $attribute) {
+        $search_query = $this->formatLDAPAttributeSearch(
+          $attribute,
+          $login_user);
+        $record = $this->searchLDAPForRecord($search_query);
+        if ($record) {
+          $distinguished_name = $this->readLDAPData($record, 'dn');
+          break;
+        }
       }
-      $login_user = $this->readLDAPData($user, $this->searchAttribute);
-      $distinguished_name = $this->readLDAPData($user, 'dn');
-    }
-
-    if ($this->activeDirectoryDomain) {
-      $distinguished_name = ldap_sprintf(
-        '%s@%Q',
-        $login_user,
-        $this->activeDirectoryDomain);
+      if ($distinguished_name === null) {
+        throw new PhutilAuthCredentialException();
+      }
+    } else {
+      $search_query = $this->formatLDAPAttributeSearch(
+        head($this->searchAttributes),
+        $login_user);
+      if ($this->activeDirectoryDomain) {
+        $distinguished_name = ldap_sprintf(
+          '%s@%Q',
+          $login_user,
+          $this->activeDirectoryDomain);
+      } else {
+        $distinguished_name = ldap_sprintf(
+          '%Q,%Q',
+          $search_query,
+          $this->baseDistinguishedName);
+      }
     }
 
     $this->bindLDAP($conn, $distinguished_name, $login_pass);
 
-    $result = $this->searchLDAPForUser($this->searchAttribute, $login_user);
+    $result = $this->searchLDAPForRecord($search_query);
     if (!$result) {
       // This is unusual (since the bind succeeded) but we've seen it at least
       // once in the wild, where the anonymous user is allowed to search but
@@ -231,13 +263,13 @@ final class PhutilAuthAdapterLDAP extends PhutilAuthAdapter {
       // If we do have anonymous credentials, we'll rebind and try the search
       // again below. Doing this automatically means things work correctly more
       // often without requiring additional configuration.
-      if (!strlen($this->anonymousUsername)) {
+      if (!$this->shouldBindWithoutIdentity()) {
         // No anonymous credentials, so we just fail here.
         throw new Exception(
           pht(
             'LDAP: Failed to retrieve record for user "%s" when searching. '.
             'Credentialed users may not be able to search your LDAP server. '.
-            'Try configuring anonymous credentials.',
+            'Try configuring anonymous credentials or fully anonymous binds.',
             $login_user));
       } else {
         // Rebind as anonymous and try the search again.
@@ -245,7 +277,7 @@ final class PhutilAuthAdapterLDAP extends PhutilAuthAdapter {
         $pass = $this->anonymousPassword;
         $this->bindLDAP($conn, $user, $pass);
 
-        $result = $this->searchLDAPForUser($this->searchAttribute, $login_user);
+        $result = $this->searchLDAPForRecord($search_query);
         if (!$result) {
           throw new Exception(
             pht(
@@ -326,7 +358,7 @@ final class PhutilAuthAdapterLDAP extends PhutilAuthAdapter {
         }
       }
 
-      if (strlen($this->anonymousUsername)) {
+      if ($this->shouldBindWithoutIdentity()) {
         $user = $this->anonymousUsername;
         $pass = $this->anonymousPassword;
         $this->bindLDAP($conn, $user, $pass);
@@ -339,10 +371,10 @@ final class PhutilAuthAdapterLDAP extends PhutilAuthAdapter {
   }
 
 
-  private function searchLDAPForUser($attribute, $username) {
+  private function searchLDAPForRecord($dn) {
     $conn = $this->establishConnection();
 
-    $results = $this->searchLDAP('%Q=%S', $attribute, $username);
+    $results = $this->searchLDAP('%Q', $dn);
 
     if (!$results) {
       return null;
@@ -350,8 +382,9 @@ final class PhutilAuthAdapterLDAP extends PhutilAuthAdapter {
 
     if (count($results) > 1) {
       throw new Exception(
-        "LDAP user query returned more than one result. It must uniquely ".
-        "identify a user.");
+        pht(
+          'LDAP record query returned more than one result. The query must '.
+          'uniquely identify a record.'));
     }
 
     return head($results);
@@ -402,6 +435,11 @@ final class PhutilAuthAdapterLDAP extends PhutilAuthAdapter {
     $errno = @ldap_errno($conn);
     $error = @ldap_error($conn);
 
+    // This is `LDAP_INVALID_CREDENTIALS`.
+    if ($errno == 49) {
+      throw new PhutilAuthCredentialException();
+    }
+
     if ($errno || $error) {
       $full_message = pht(
         "LDAP Exception: %s\nLDAP Error #%d: %s",
@@ -428,15 +466,40 @@ final class PhutilAuthAdapterLDAP extends PhutilAuthAdapter {
 
     // NOTE: ldap_bind() dumps cleartext passwords into logs by default. Keep
     // it quiet.
-    $ok = @ldap_bind($conn, $user, $pass->openEnvelope());
+    if (strlen($user)) {
+      $ok = @ldap_bind($conn, $user, $pass->openEnvelope());
+    } else {
+      $ok = @ldap_bind($conn);
+    }
 
     $profiler->endServiceCall($call_id, array());
 
     if (!$ok) {
-      $this->raiseConnectionException(
-        $conn,
-        pht("Failed to bind to LDAP server (as user '%s').", $user));
+      if (strlen($user)) {
+        $this->raiseConnectionException(
+          $conn,
+          pht('Failed to bind to LDAP server (as user "%s").', $user));
+      } else {
+        $this->raiseConnectionException(
+          $conn,
+          pht('Failed to bind to LDAP server (without username).'));
+      }
     }
+  }
+
+
+  /**
+   * Determine if this adapter should attempt to bind to the LDAP server
+   * without a user identity.
+   *
+   * Generally, we can bind directly if we have a username/password, or if the
+   * "Always Search" flag is set, indicating that the empty username and
+   * password are sufficient.
+   *
+   * @return bool True if the adapter should perform binds without identity.
+   */
+  private function shouldBindWithoutIdentity() {
+    return $this->alwaysSearch || strlen($this->anonymousUsername);
   }
 
 }
