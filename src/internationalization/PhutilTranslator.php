@@ -119,7 +119,11 @@ final class PhutilTranslator {
       }
     }
 
-    $result = vsprintf($translation, $args);
+    if (is_array($args) && sizeof($args) > 0) {
+      $result = vsprintf($translation, $args);
+    } else {
+      $result = $translation;
+    }
 
     if ($this->language == 'en-ac') {
       $result = strtoupper($result);
