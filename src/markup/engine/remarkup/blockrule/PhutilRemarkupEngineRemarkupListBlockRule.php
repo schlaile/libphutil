@@ -1,8 +1,5 @@
 <?php
 
-/**
- * @group markup
- */
 final class PhutilRemarkupEngineRemarkupListBlockRule
   extends PhutilRemarkupEngineBlockRule {
 
@@ -59,7 +56,6 @@ final class PhutilRemarkupEngineRemarkupListBlockRule
   const STRIP_BLOCK_PATTERN = '@^\s*(?:[-*#]+|[0-9]+[.)])\s*@';
 
   public function markupText($text, $children) {
-
     $items = array();
     $lines = explode("\n", $text);
 
@@ -264,7 +260,7 @@ final class PhutilRemarkupEngineRemarkupListBlockRule
 
 
     // We may need to open a list on a <null> node, but they do not have
-    // list style information yet. We need to propagate list style inforamtion
+    // list style information yet. We need to propagate list style information
     // backward through the tree. In the above example, the tree now looks
     // like this:
     //
@@ -291,7 +287,7 @@ final class PhutilRemarkupEngineRemarkupListBlockRule
   }
 
   /**
-   * See additional notes in markupText().
+   * See additional notes in @{method:markupText}.
    */
   private function buildTree(array $items, $l, $r, $cur_level) {
     if ($l == $r) {
@@ -353,10 +349,9 @@ final class PhutilRemarkupEngineRemarkupListBlockRule
 
 
   /**
-   * See additional notes in markupText().
+   * See additional notes in @{method:markupText}.
    */
   private function adjustTreeStyleInformation(array &$tree) {
-
     // The effect here is just to walk backward through the nodes at this level
     // and apply the first style in the list to any empty nodes we inserted
     // before it. As we go, also recurse down the tree.
@@ -379,7 +374,7 @@ final class PhutilRemarkupEngineRemarkupListBlockRule
 
 
   /**
-   * See additional notes in markupText().
+   * See additional notes in @{method:markupText}.
    */
   private function renderTree(array $tree, $level, $has_marks) {
     $style = idx(head($tree), 'style');
@@ -397,9 +392,13 @@ final class PhutilRemarkupEngineRemarkupListBlockRule
       }
 
       if ($has_marks) {
-        $out[] = hsprintf('<%s class="remarkup-list-with-checkmarks">', $tag);
+        $out[] = hsprintf(
+          '<%s class="remarkup-list remarkup-list-with-checkmarks">',
+          $tag);
       } else {
-        $out[] = hsprintf('<%s>', $tag);
+        $out[] = hsprintf(
+          '<%s class="remarkup-list">',
+          $tag);
       }
 
       $out[] = "\n";
@@ -428,13 +427,15 @@ final class PhutilRemarkupEngineRemarkupListBlockRule
         }
         $out[] = $this->applyRules($item['text'])."\n";
       } else if ($item['text'] === null) {
-        $out[] = hsprintf('<li class="phantom-item">');
+        $out[] = hsprintf('<li class="remarkup-list-item phantom-item">');
       } else {
         if ($item['mark'] !== null) {
           if ($item['mark'] == true) {
-            $out[] = hsprintf('<li class="remarkup-checked-item">');
+            $out[] = hsprintf(
+              '<li class="remarkup-list-item remarkup-checked-item">');
           } else {
-            $out[] = hsprintf('<li class="remarkup-unchecked-item">');
+            $out[] = hsprintf(
+              '<li class="remarkup-list-item remarkup-unchecked-item">');
           }
           $out[] = phutil_tag(
             'input',
@@ -445,7 +446,7 @@ final class PhutilRemarkupEngineRemarkupListBlockRule
             ));
           $out[] = ' ';
         } else {
-          $out[] = hsprintf('<li>');
+          $out[] = hsprintf('<li class="remarkup-list-item">');
         }
 
         $out[] = $this->applyRules($item['text']);
@@ -474,6 +475,5 @@ final class PhutilRemarkupEngineRemarkupListBlockRule
 
     return $out;
   }
-
 
 }

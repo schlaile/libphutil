@@ -1,8 +1,5 @@
 <?php
 
-/**
- * @group futures
- */
 final class HTTPFutureResponseStatusParse extends HTTPFutureResponseStatus {
 
   const ERROR_MALFORMED_RESPONSE = 1;
@@ -26,7 +23,7 @@ final class HTTPFutureResponseStatusParse extends HTTPFutureResponseStatus {
 
   protected function getErrorCodeDescription($code) {
     return
-      "The remote host returned something other than an HTTP response: ".
+      'The remote host returned something other than an HTTP response: '.
       $this->rawResponse;
   }
 

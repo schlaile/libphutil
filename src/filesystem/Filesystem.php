@@ -14,7 +14,6 @@
  * @task path        Paths
  * @task exec        Executables
  * @task assert      Assertions
- * @group filesystem
  */
 final class Filesystem {
 
@@ -97,22 +96,20 @@ final class Filesystem {
   }
 
   /**
-   * Write a file in a manner similar to file_put_contents(), but only
-   * touch the file if the contents are different, and throw detailed
-   * exceptions on failure.
+   * Write a file in a manner similar to `file_put_contents()`, but only touch
+   * the file if the contents are different, and throw detailed exceptions on
+   * failure.
    *
-   * As this function is used in build steps to update code, if we write
-   * a new file, we do so by writing to a temporary file and moving it
-   * into place.  This allows a concurrently reading process to see
-   * a consistent view of the file without needing locking; any given
-   * read of the file is guaranteed to be self-consistent and not see
-   * partial file contents.
+   * As this function is used in build steps to update code, if we write a new
+   * file, we do so by writing to a temporary file and moving it into place.
+   * This allows a concurrently reading process to see a consistent view of the
+   * file without needing locking; any given read of the file is guaranteed to
+   * be self-consistent and not see partial file contents.
    *
    * @param string file path to write
    * @param string data to write
    *
-   * @return boolean indicating whether the file was changed by this
-   * function
+   * @return boolean indicating whether the file was changed by this function.
    */
   public static function writeFileIfChanged($path, $data) {
     if (file_exists($path)) {
@@ -190,14 +187,14 @@ final class Filesystem {
         if ($ok === false) {
           throw new FilesystemException(
             $try_path,
-            pht("Failed to write file data."));
+            pht('Failed to write file data.'));
         }
 
         $ok = fclose($handle);
         if (!$ok) {
           throw new FilesystemException(
             $try_path,
-            pht("Failed to close file handle."));
+            pht('Failed to close file handle.'));
         }
 
         return $try_path;
@@ -265,7 +262,7 @@ final class Filesystem {
   public static function remove($path) {
     if (!strlen($path)) {
       // Avoid removing PWD.
-      throw new Exception("No path provided to remove().");
+      throw new Exception('No path provided to remove().');
     }
 
     $path = self::resolvePath($path);
@@ -347,7 +344,7 @@ final class Filesystem {
     self::assertExists($path);
 
     if (!@chmod($path, $umask)) {
-      $readable_umask = sprintf("%04o", $umask);
+      $readable_umask = sprintf('%04o', $umask);
       throw new FilesystemException(
         $path, "Failed to chmod `{$path}' to `{$readable_umask}'.");
     }
@@ -392,7 +389,7 @@ final class Filesystem {
   public static function readRandomBytes($number_of_bytes) {
     $number_of_bytes = (int)$number_of_bytes;
     if ($number_of_bytes < 1) {
-      throw new Exception(pht("You must generate at least 1 byte of entropy."));
+      throw new Exception(pht('You must generate at least 1 byte of entropy.'));
     }
 
     // Try to use `openssl_random_psuedo_bytes()` if it's available. This source
@@ -587,19 +584,23 @@ final class Filesystem {
    * @param  string    Path to directory. The parent directory must exist and
    *                   be writable.
    * @param  int       Permission umask. Note that umask is in octal, so you
-   *                   should specify it as, e.g., `0777', not `777'. By
-   *                   default, these permissions are very liberal (0777).
-   * @param  boolean   Recursivly create directories.  Default to false
+   *                   should specify it as, e.g., `0777', not `777'.
+   * @param  boolean   Recursively create directories. Default to false.
    * @return string    Path to the created directory.
    *
    * @task   directory
    */
-  public static function createDirectory($path, $umask = 0777,
-                                            $recursive = false) {
+  public static function createDirectory(
+    $path,
+    $umask = 0755,
+    $recursive = false) {
+
     $path = self::resolvePath($path);
 
     if (is_dir($path)) {
-      Filesystem::changePermissions($path, $umask);
+      if ($umask) {
+        Filesystem::changePermissions($path, $umask);
+      }
       return $path;
     }
 
@@ -621,12 +622,14 @@ final class Filesystem {
         "Failed to create directory `{$path}'.");
     }
 
-    // Need to change premissions explicitly because mkdir does something
+    // Need to change permissions explicitly because mkdir does something
     // slightly different. mkdir(2) man page:
     // 'The parameter mode specifies the permissions to use. It is modified by
     // the process's umask in the usual way: the permissions of the created
     // directory are (mode & ~umask & 0777)."'
-    Filesystem::changePermissions($path, $umask);
+    if ($umask) {
+      Filesystem::changePermissions($path, $umask);
+    }
 
     return $path;
   }
@@ -671,7 +674,7 @@ final class Filesystem {
       if ($df !== false && $df < 1024 * 1024) {
         throw new FilesystemException(
           $dir,
-          pht("Failed to create a temporary directory: the disk is full."));
+          pht('Failed to create a temporary directory: the disk is full.'));
       }
 
       throw new FilesystemException(
@@ -908,7 +911,13 @@ final class Filesystem {
     if (phutil_is_windows()) {
       list($err, $stdout) = exec_manual('where %s', $binary);
       $stdout = phutil_split_lines($stdout);
-      if (!$stdout) {
+
+      // If `where %s` could not find anything, check for relative binary
+      if ($err) {
+        $path = Filesystem::resolvePath($binary);
+        if (Filesystem::pathExists($path)) {
+          return $path;
+        }
         return null;
       }
       $stdout = head($stdout);

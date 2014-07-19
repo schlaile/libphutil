@@ -14,7 +14,6 @@
  * @task create  Creating a New Editor
  * @task edit    Editing Interactively
  * @task config  Configuring Options
- * @group console
  */
 final class PhutilInteractiveEditor {
 
@@ -58,6 +57,10 @@ final class PhutilInteractiveEditor {
     $name = $this->getName();
     $content = $this->getContent();
 
+    if (phutil_is_windows()) {
+      $content = str_replace("\n", "\r\n", $content);
+    }
+
     $tmp = Filesystem::createTemporaryDirectory('edit.');
     $path = $tmp.DIRECTORY_SEPARATOR.$name;
 
@@ -84,6 +87,10 @@ final class PhutilInteractiveEditor {
     } catch (Exception $ex) {
       Filesystem::remove($tmp);
       throw $ex;
+    }
+
+    if (phutil_is_windows()) {
+      $result = str_replace("\r\n", "\n", $result);
     }
 
     $this->setContent($result);
@@ -268,7 +275,8 @@ final class PhutilInteractiveEditor {
     }
 
     throw new Exception(
-      "Unable to launch an interactive text editor. Set the EDITOR ".
-      "environment variable to an appropriate editor.");
+      'Unable to launch an interactive text editor. Set the EDITOR '.
+      'environment variable to an appropriate editor.');
   }
+
 }

@@ -1,8 +1,5 @@
 <?php
 
-/**
- * @group markup
- */
 final class PhutilPygmentsSyntaxHighlighter {
 
   private $config = array();
@@ -164,6 +161,7 @@ final class PhutilPygmentsSyntaxHighlighter {
       'pl' => 'prolog',
       'pro' => 'prolog',
       'proto' => 'protobuf',
+      'pp' => 'puppet',
       'py' => 'python',
       'pyw' => 'python',
       'sc' => 'python',

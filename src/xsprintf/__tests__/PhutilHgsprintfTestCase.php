@@ -1,8 +1,8 @@
 <?php
 
-final class PhutilxsprintfTestCase extends ArcanistTestCase {
+final class PhutilHgsprintfTestCase extends PhutilTestCase {
 
-  public function testhgsprintf() {
+  public function testHgsprintf() {
     $this->assertEqual(
       "'version-1'",
       hgsprintf('%s', 'version-1'));

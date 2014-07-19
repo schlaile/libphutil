@@ -1,8 +1,7 @@
 #!/usr/bin/env php
 <?php
 
-$root = dirname(dirname(dirname(__FILE__)));
-require_once $root.'/scripts/__init_script__.php';
+require_once dirname(__FILE__).'/../__init_script__.php';
 
 $args = new PhutilArgumentParser($argv);
 $args->parseStandardArguments();
@@ -44,9 +43,10 @@ try {
 function run_interrupt_bar() {
   $bar = id(new PhutilConsoleProgressBar())
     ->setTotal(100);
+
   for ($ii = 0; $ii < 100; $ii++) {
-    if ($ii == 20) {
-      throw new Exception("Boo!");
+    if ($ii === 20) {
+      throw new Exception('Boo!');
     }
     $bar->update(1);
     usleep(10000);

@@ -1,8 +1,5 @@
 <?php
 
-/**
- * @group markup
- */
 final class PhutilInvisibleSyntaxHighlighter {
 
   private $config = array();
@@ -13,9 +10,9 @@ final class PhutilInvisibleSyntaxHighlighter {
   }
 
   public function getHighlightFuture($source) {
-    $keys      = array_map("chr", range(0x0, 0x1F));
+    $keys      = array_map('chr', range(0x0, 0x1F));
     $vals      = array_map(
-      array($this, "decimalToHtmlEntityDecoded"), range(0x2400, 0x241F));
+      array($this, 'decimalToHtmlEntityDecoded'), range(0x2400, 0x241F));
 
     $invisible = array_combine($keys, $vals);
 
@@ -24,7 +21,7 @@ final class PhutilInvisibleSyntaxHighlighter {
       if (isset($invisible[$character])) {
         $result[] = phutil_tag(
           'span',
-          array("class" => "invisible"),
+          array('class' => 'invisible'),
           $invisible[$character]);
 
         if ($character === "\n") {
@@ -42,4 +39,5 @@ final class PhutilInvisibleSyntaxHighlighter {
   private function decimalToHtmlEntityDecoded($dec) {
     return html_entity_decode("&#{$dec};");
   }
+
 }

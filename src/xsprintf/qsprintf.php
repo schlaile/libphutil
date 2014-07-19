@@ -1,9 +1,9 @@
 <?php
 
 /**
- * Format an SQL query. This function behaves like sprintf(), except that
- * all the normal conversions (like %s) will be properly escaped, and
- * additional conversions are supported:
+ * Format an SQL query. This function behaves like `sprintf`, except that all
+ * the normal conversions (like "%s") will be properly escaped, and additional
+ * conversions are supported:
  *
  *   %nd, %ns, %nf, %nB
  *     "Nullable" versions of %d, %s, %f and %B. Will produce 'NULL' if the
@@ -41,7 +41,7 @@
  *   %~ ("Substring")
  *     Escapes a substring query for a LIKE (or NOT LIKE) clause. For example:
  *
- *       //  Find all rows with $search as a substing of `name`.
+ *       //  Find all rows with $search as a substring of `name`.
  *       qsprintf($escaper, 'WHERE name LIKE %~', $search);
  *
  *     See also %> and %<.
@@ -57,27 +57,21 @@
  *
  *       //  Find all rows where `name` ends with $suffix.
  *       qsprintf($escaper, 'WHERE name LIKE %<', $suffix);
- *
- * @group storage
  */
-function qsprintf(PhutilQsprintfInterface $escaper, $pattern/* , ... */) {
+function qsprintf(PhutilQsprintfInterface $escaper, $pattern /* , ... */) {
   $args = func_get_args();
   array_shift($args);
   return xsprintf('xsprintf_query', $escaper, $args);
 }
 
-/**
- * @group storage
- */
 function vqsprintf(PhutilQsprintfInterface $escaper, $pattern, array $argv) {
   array_unshift($argv, $pattern);
   return xsprintf('xsprintf_query', $escaper, $argv);
 }
 
-
 /**
- * xsprintf() callback for encoding SQL queries. See qsprintf().
- * @group storage
+ * @{function:xsprintf} callback for encoding SQL queries. See
+ * @{function:qsprintf}.
  */
 function xsprintf_query($userdata, &$pattern, &$pos, &$value, &$length) {
   $type    = $pattern[$pos];
@@ -90,7 +84,7 @@ function xsprintf_query($userdata, &$pattern, &$pos, &$value, &$length) {
   $prefix   = '';
 
   if (!($escaper instanceof PhutilQsprintfInterface)) {
-    throw new Exception("Invalid database escaper!");
+    throw new InvalidArgumentException('Invalid database escaper.');
   }
 
   switch ($type) {
@@ -101,7 +95,7 @@ function xsprintf_query($userdata, &$pattern, &$pos, &$value, &$length) {
         case 's':
           $pattern = substr_replace($pattern, '', $pos, 1);
           $length  = strlen($pattern);
-          $type  = 's';
+          $type    = 's';
           if ($value === null) {
             $value = 'IS NULL';
             $done = true;
@@ -127,7 +121,7 @@ function xsprintf_query($userdata, &$pattern, &$pos, &$value, &$length) {
           $nullable = true;
           break;
         default:
-          throw new Exception('Unknown conversion, try %nd or %ns.');
+          throw new XsprintfUnknownConversionException("%n{$next}");
       }
       break;
 
@@ -161,7 +155,7 @@ function xsprintf_query($userdata, &$pattern, &$pos, &$value, &$length) {
           $value = implode(', ', $value);
           break;
         default:
-          throw new Exception("Unknown conversion %L{$next}.");
+          throw new XsprintfUnknownConversionException("%L{$next}");
       }
       break;
   }
@@ -197,8 +191,8 @@ function xsprintf_query($userdata, &$pattern, &$pos, &$value, &$length) {
         $value = $escaper->escapeStringForLikeClause($value);
         switch ($type) {
           case '~': $value = "'%".$value."%'"; break;
-          case '>': $value = "'" .$value."%'"; break;
-          case '<': $value = "'%".$value. "'"; break;
+          case '>': $value = "'".$value."%'"; break;
+          case '<': $value = "'%".$value."'"; break;
         }
         $type  = 's';
         break;
@@ -233,8 +227,7 @@ function xsprintf_query($userdata, &$pattern, &$pos, &$value, &$length) {
         break;
 
       default:
-        throw new Exception("Unknown conversion '%{$type}'.");
-
+        throw new XsprintfUnknownConversionException($type);
     }
   }
 
@@ -244,13 +237,12 @@ function xsprintf_query($userdata, &$pattern, &$pos, &$value, &$length) {
   $pattern[$pos] = $type;
 }
 
-
-/**
- * @group storage
- */
 function _qsprintf_check_type($value, $type, $query) {
   switch ($type) {
-    case 'Ld': case 'Ls': case 'LC': case 'LB':
+    case 'Ld':
+    case 'Ls':
+    case 'LC':
+    case 'LB':
       if (!is_array($value)) {
         throw new AphrontQueryParameterException(
           $query,
@@ -272,13 +264,12 @@ function _qsprintf_check_type($value, $type, $query) {
   }
 }
 
-
-/**
- * @group storage
- */
 function _qsprintf_check_scalar_type($value, $type, $query) {
   switch ($type) {
-    case 'Q': case 'LC': case 'T': case 'C':
+    case 'Q':
+    case 'LC':
+    case 'T':
+    case 'C':
       if (!is_string($value)) {
         throw new AphrontQueryParameterException(
           $query,
@@ -286,7 +277,9 @@ function _qsprintf_check_scalar_type($value, $type, $query) {
       }
       break;
 
-    case 'Ld': case 'd': case 'f':
+    case 'Ld':
+    case 'd':
+    case 'f':
       if (!is_null($value) && !is_numeric($value)) {
         throw new AphrontQueryParameterException(
           $query,
@@ -294,8 +287,14 @@ function _qsprintf_check_scalar_type($value, $type, $query) {
       }
       break;
 
-    case 'Ls': case 's': case 'LB': case 'B':
-    case '~': case '>': case '<': case 'K':
+    case 'Ls':
+    case 's':
+    case 'LB':
+    case 'B':
+    case '~':
+    case '>':
+    case '<':
+    case 'K':
       if (!is_null($value) && !is_scalar($value)) {
         throw new AphrontQueryParameterException(
           $query,
@@ -304,6 +303,6 @@ function _qsprintf_check_scalar_type($value, $type, $query) {
       break;
 
     default:
-      throw new Exception("Unknown conversion '{$type}'.");
+      throw new XsprintfUnknownConversionException($type);
   }
 }

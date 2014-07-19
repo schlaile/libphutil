@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 
-require_once dirname(dirname(__FILE__)).'/__init_script__.php';
+require_once dirname(__FILE__).'/../__init_script__.php';
 
 $args = new PhutilArgumentParser($argv);
 $args->setTagline('acquire and hold a lockfile');
@@ -11,6 +11,7 @@ $args->setSynopsis(<<<EOHELP
 
 EOHELP
 );
+
 $args->parseStandardArguments();
 $args->parse(array(
   array(
@@ -35,7 +36,7 @@ $args->parse(array(
 
 
 $file = $args->getArg('file');
-if (count($file) != 1) {
+if (count($file) !== 1) {
   $args->printHelpAndExit();
 }
 $file = head($file);
@@ -65,7 +66,7 @@ if ($args->getArg('hold')) {
   }
 }
 
-while (!$console->confirm("Release lock?")) {
+while (!$console->confirm('Release lock?')) {
   // Keep asking until they say yes.
 }
 

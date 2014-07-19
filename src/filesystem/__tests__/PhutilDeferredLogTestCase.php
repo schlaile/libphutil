@@ -1,19 +1,16 @@
 <?php
 
-/**
- * @group testcase
- */
 final class PhutilDeferredLogTestCase extends PhutilTestCase {
 
   public function testLogging() {
     $this->checkLog(
       "derp\n",
-      "derp",
+      'derp',
       array());
 
     $this->checkLog(
       "[20 Aug 1984] alincoln\n",
-      "[%T] %u",
+      '[%T] %u',
       array(
         'T' => '20 Aug 1984',
         'u' => 'alincoln',
@@ -21,14 +18,14 @@ final class PhutilDeferredLogTestCase extends PhutilTestCase {
 
     $this->checkLog(
       "%%%%%\n",
-      "%%%%%%%%%%",
+      '%%%%%%%%%%',
       array(
         '%' => '%',
       ));
 
     $this->checkLog(
       "\\000\\001\\002\n",
-      "%a%b%c",
+      '%a%b%c',
       array(
         'a' => chr(0),
         'b' => chr(1),
@@ -37,21 +34,21 @@ final class PhutilDeferredLogTestCase extends PhutilTestCase {
 
     $this->checkLog(
       "Download: 100%\n",
-      "Download: %C",
+      'Download: %C',
       array(
         'C' => '100%',
       ));
 
     $this->checkLog(
       "- bee -\n",
-      "%a %b %c",
+      '%a %b %c',
       array(
         'b' => 'bee',
       ));
 
     $this->checkLog(
       "\\\\\n",
-      "%b",
+      '%b',
       array(
         'b' => '\\',
       ));
@@ -73,12 +70,11 @@ final class PhutilDeferredLogTestCase extends PhutilTestCase {
 
     $this->checkLog(
       "a % xb\n",
-      "%a %% x%b",
+      '%a %% x%b',
       array(
         'a' => 'a',
         'b' => 'b',
       ));
-
   }
 
   public function testLogWriteFailure() {
@@ -109,7 +105,7 @@ final class PhutilDeferredLogTestCase extends PhutilTestCase {
 
     $futures = array();
     for ($ii = 0; $ii < $n_writers; $ii++) {
-      $futures[] = new ExecFuture("%s %d %s", $bin, $n_lines, (string)$tmp);
+      $futures[] = new ExecFuture('%s %d %s', $bin, $n_lines, (string)$tmp);
     }
 
     Futures($futures)->resolveAll();

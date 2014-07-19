@@ -7,8 +7,6 @@
  * semantics with @{class:PhutilProtocolChannel}).
  *
  * The implementation of this class is entirely uninteresting.
- *
- * @group channel
  */
 abstract class PhutilChannelChannel extends PhutilChannel {
 
@@ -102,8 +100,8 @@ abstract class PhutilChannelChannel extends PhutilChannel {
     // protected.
 
     throw new Exception(
-      "Do not call readBytes() or writeBytes() directly on a ".
-      "PhutilChannelChannel. Instead, call read() or write().");
+      'Do not call readBytes() or writeBytes() directly on a '.
+      'PhutilChannelChannel. Instead, call read() or write().');
   }
 
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 
-require_once dirname(dirname(__FILE__)).'/__init_script__.php';
+require_once dirname(__FILE__).'/../__init_script__.php';
 
 $args = new PhutilArgumentParser($argv);
 $args->setTagline('edit directory fixtures');
@@ -30,7 +30,7 @@ $args->parse(array(
   ),
 ));
 
-$is_create = $args->getArg('create');
+$is_create    = $args->getArg('create');
 $is_read_only = $args->getArg('read-only');
 $console = PhutilConsole::getConsole();
 

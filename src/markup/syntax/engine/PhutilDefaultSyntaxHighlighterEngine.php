@@ -1,8 +1,5 @@
 <?php
 
-/**
- * @group markup
- */
 final class PhutilDefaultSyntaxHighlighterEngine
   extends PhutilSyntaxHighlighterEngine {
 
@@ -14,7 +11,6 @@ final class PhutilDefaultSyntaxHighlighterEngine
   }
 
   public function getLanguageFromFilename($filename) {
-
     static $default_map = array(
       // All files which have file extensions that we haven't already matched
       // map to their extensions.
@@ -44,7 +40,6 @@ final class PhutilDefaultSyntaxHighlighterEngine
   }
 
   public function getHighlightFuture($language, $source) {
-
     if ($language === null) {
       $language = PhutilLanguageGuesser::guessLanguage($source);
     }
@@ -78,6 +73,13 @@ final class PhutilDefaultSyntaxHighlighterEngine
         ->getHighlightFuture($source);
     }
 
+    if ($language == 'py') {
+      return id(new PhutilLexerSyntaxHighlighter())
+        ->setConfig('lexer', new PhutilPythonFragmentLexer())
+        ->setConfig('language', 'py')
+        ->getHighlightFuture($source);
+    }
+
     if ($language == 'invisible') {
       return id(new PhutilInvisibleSyntaxHighlighter())
              ->getHighlightFuture($source);
@@ -92,4 +94,5 @@ final class PhutilDefaultSyntaxHighlighterEngine
     return id(new PhutilDefaultSyntaxHighlighter())
       ->getHighlightFuture($source);
   }
+
 }

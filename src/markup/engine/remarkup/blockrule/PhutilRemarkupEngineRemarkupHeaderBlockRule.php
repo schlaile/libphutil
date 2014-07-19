@@ -1,8 +1,5 @@
 <?php
 
-/**
- * @group markup
- */
 final class PhutilRemarkupEngineRemarkupHeaderBlockRule
   extends PhutilRemarkupEngineBlockRule {
 
@@ -12,7 +9,7 @@ final class PhutilRemarkupEngineRemarkupHeaderBlockRule
       $num_lines = 1;
     } else {
       if (isset($lines[$cursor + 1])) {
-        $line = $lines[$cursor] . $lines[$cursor + 1];
+        $line = $lines[$cursor].$lines[$cursor + 1];
         if (preg_match('/^([^\n]+)\n[-=]{2,}\s*$/', $line)) {
           $num_lines = 2;
           $cursor++;
@@ -68,7 +65,9 @@ final class PhutilRemarkupEngineRemarkupHeaderBlockRule
 
     $text = phutil_tag(
       'h'.($level + 1),
-      array(),
+      array(
+        'class' => 'remarkup-header',
+      ),
       array($anchor, $this->applyRules($text)));
 
     return $text;

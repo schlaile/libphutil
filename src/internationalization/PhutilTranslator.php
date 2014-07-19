@@ -12,6 +12,7 @@ abstract class PhutilCustomTranslator {
  * @group internationalization
  */
 final class PhutilTranslator {
+
   static private $instance;
 
   private $language = 'en';

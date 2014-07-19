@@ -29,8 +29,6 @@
  * security risks.
  *
  * This class generates keys, and stores the map of keys to replacement text.
- *
- * @group markup
  */
 final class PhutilRemarkupBlockStorage {
 
@@ -40,7 +38,7 @@ final class PhutilRemarkupBlockStorage {
   private $index;
 
   public function store($text) {
-    $key = self::MAGIC_BYTE.(++$this->index)."Z";
+    $key = self::MAGIC_BYTE.(++$this->index).'Z';
     $this->map[$key] = $text;
     return $key;
   }

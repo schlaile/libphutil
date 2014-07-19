@@ -22,6 +22,7 @@ $args->setSynopsis(<<<EOHELP
     valid UTF-8.
 EOHELP
 );
+
 $args->parseStandardArguments();
 $args->parse(array(
   array(
@@ -63,7 +64,7 @@ exit($err);
 
 
 function read($file) {
-  if ($file == '-') {
+  if ($file === '-') {
     return file_get_contents('php://stdin');
   } else {
     return Filesystem::readFile($file);
@@ -71,7 +72,7 @@ function read($file) {
 }
 
 function name($file) {
-  if ($file == '-') {
+  if ($file === '-') {
     return 'stdin';
   } else {
     return $file;
@@ -94,9 +95,9 @@ function show(array $files, $context) {
     $data = read($file);
     $ok = phutil_is_utf8($data);
     if ($ok) {
-      echo "OKAY";
+      echo 'OKAY';
     } else {
-      echo "FAIL";
+      echo 'FAIL';
     }
     echo "  ".name($file)."\n";
 
@@ -119,12 +120,12 @@ function show(array $files, $context) {
 
       $width = strlen(max(array_keys($map)));
 
-      // Set $last such that we print a newline on the first iteration thorugh
+      // Set $last such that we print a newline on the first iteration through
       // the loop.
       $last = -2;
       foreach ($map as $idx => $ignored) {
-        if ($idx != $last + 1) {
-          printf("\n");
+        if ($idx !== $last + 1) {
+          echo "\n";
         }
         $last = $idx;
 
@@ -137,7 +138,6 @@ function show(array $files, $context) {
       }
       echo "\n";
     }
-
   }
 
   return 0;
@@ -158,7 +158,7 @@ function show_problems($line) {
       $out .= $match[1];
       $line = substr($line, strlen($match[1]));
     } else {
-      $chr = sprintf("<0x%0X>", ord($line[0]));
+      $chr = sprintf('<0x%0X>', ord($line[0]));
       $chr = phutil_console_format('##%s##', $chr);
       $out .= $chr;
       $line = substr($line, 1);

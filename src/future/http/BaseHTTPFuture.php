@@ -17,7 +17,6 @@
  * @task config Configuring the Request
  * @task resolve Resolving the Request
  * @task internal Internals
- * @group futures
  */
 abstract class BaseHTTPFuture extends Future {
 
@@ -156,7 +155,7 @@ abstract class BaseHTTPFuture extends Future {
    */
   public function setData($data) {
     if (!is_string($data) && !is_array($data)) {
-      throw new Exception("Data parameter must be an array or string.");
+      throw new Exception('Data parameter must be an array or string.');
     }
     $this->data = $data;
     return $this;
@@ -221,7 +220,7 @@ abstract class BaseHTTPFuture extends Future {
   /**
    * Set the status codes that are expected in the response.
    * If set, isError on the status object will return true for status codes
-   * that are not in the input array. Otherise, isError will be true for any
+   * that are not in the input array. Otherwise, isError will be true for any
    * HTTP status code outside the 2xx range (notwithstanding other errors such
    * as connection or transport issues).
    *
@@ -268,8 +267,8 @@ abstract class BaseHTTPFuture extends Future {
 
 
   /**
-   * Exception-oriented resolve(). Throws if the status indicates an error
-   * occurred.
+   * Exception-oriented @{method:resolve}. Throws if the status indicates an
+   * error occurred.
    *
    * @return tuple  HTTP request result <body, headers> tuple.
    * @task resolve
@@ -410,4 +409,5 @@ abstract class BaseHTTPFuture extends Future {
       $raw_response);
     return array($status, $body, $headers);
   }
+
 }

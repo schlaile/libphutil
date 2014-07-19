@@ -12,13 +12,27 @@
  * If using this cache improves application performance, especially if it
  * improves it significantly, it may indicate an architectural problem in your
  * application.
- *
- * @group cache
  */
 final class PhutilKeyValueCacheInRequest extends PhutilKeyValueCache {
 
   private $cache = array();
   private $ttl = array();
+  private $limit = 0;
+
+
+  /**
+   * Set a limit on the number of keys this cache may contain.
+   *
+   * When too many keys are inserted, the oldest keys are removed from the
+   * cache. Setting a limit of `0` disables the cache.
+   *
+   * @param int Maximum number of items to store in the cache.
+   * @return this
+   */
+  public function setLimit($limit) {
+    $this->limit = $limit;
+    return $this;
+  }
 
 
 /* -(  Key-Value Cache Implementation  )------------------------------------- */
@@ -45,7 +59,11 @@ final class PhutilKeyValueCacheInRequest extends PhutilKeyValueCache {
   }
 
   public function setKeys(array $keys, $ttl = null) {
-    $this->cache = $keys + $this->cache;
+
+    foreach ($keys as $key => $value) {
+      $this->cache[$key] = $value;
+    }
+
     if ($ttl) {
       $end = time() + $ttl;
       foreach ($keys as $key => $value) {
@@ -54,6 +72,23 @@ final class PhutilKeyValueCacheInRequest extends PhutilKeyValueCache {
     } else {
       foreach ($keys as $key => $value) {
         unset($this->ttl[$key]);
+      }
+    }
+
+    if ($this->limit) {
+      $count = count($this->cache);
+      if ($count > $this->limit) {
+        $remove = array();
+        foreach ($this->cache as $key => $value) {
+          $remove[] = $key;
+
+          $count--;
+          if ($count <= $this->limit) {
+            break;
+          }
+        }
+
+        $this->deleteKeys($remove);
       }
     }
 

@@ -1,8 +1,5 @@
 <?php
 
-/**
- * @group xhpast
- */
 final class XHPASTTree extends AASTTree {
 
   public function __construct(array $tree, array $stream, $source) {
@@ -38,7 +35,7 @@ final class XHPASTTree extends AASTTree {
     $tree = XHPASTTree::newFromData($string);
     $statements = $tree->getRootNode()->selectDescendantsOfType('n_STATEMENT');
     if (count($statements) != 1) {
-      throw new Exception("String does not parse into exactly one statement!");
+      throw new Exception('String does not parse into exactly one statement!');
     }
     // Return the first one, trying to use reset() with iterators ends in tears.
     foreach ($statements as $statement) {
@@ -59,7 +56,7 @@ final class XHPASTTree extends AASTTree {
           $stderr,
           $matches);
         if ($is_syntax) {
-          throw new XHPASTSyntaxErrorException($matches[2], $stderr);
+          throw new XHPASTSyntaxErrorException($matches[2], trim($stderr));
         }
       }
       throw new Exception("XHPAST failed to parse file data {$err}: {$stderr}");
@@ -67,7 +64,7 @@ final class XHPASTTree extends AASTTree {
 
     $data = json_decode($stdout, true);
     if (!is_array($data)) {
-      throw new Exception("XHPAST: failed to decode tree.");
+      throw new Exception('XHPAST: failed to decode tree.');
     }
 
     return new XHPASTTree($data['tree'], $data['stream'], $php_source);

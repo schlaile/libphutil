@@ -65,8 +65,6 @@
  * @task read     Reading Arguments
  * @task help     Command Help
  * @task internal Internals
- *
- * @group console
  */
 final class PhutilArgumentParser {
 
@@ -104,7 +102,7 @@ final class PhutilArgumentParser {
   /**
    * Parse and consume a list of arguments, removing them from the argument
    * vector but leaving unparsed arguments for later consumption. You can
-   * retreive unconsumed arguments directly with
+   * retrieve unconsumed arguments directly with
    * @{method:getUnconsumedArgumentVector}. Doing a partial parse can make it
    * easier to share common flags across scripts or workflows.
    *
@@ -324,7 +322,7 @@ final class PhutilArgumentParser {
 
       if ($name === null) {
         throw new PhutilArgumentSpecificationException(
-          "Workflow has no name!");
+          'Workflow has no name!');
       }
 
       if (isset($this->workflows[$name])) {
@@ -342,7 +340,7 @@ final class PhutilArgumentParser {
         $argv = array('help');
       } else {
         throw new PhutilArgumentUsageException(
-          "No workflow selected.");
+          'No workflow selected.');
       }
     }
 
@@ -358,7 +356,7 @@ final class PhutilArgumentParser {
       $command_list = implode(', ', $workflow_names);
       $ex_msg =
         "Invalid command '{$flow}'. Valid commands are: {$command_list}.";
-      if (in_array("help", $workflow_names)) {
+      if (in_array('help', $workflow_names)) {
         $bin = basename($this->bin);
         $ex_msg .=
           "\nFor more details on available commands, run `{$bin} help`.";
@@ -582,7 +580,7 @@ final class PhutilArgumentParser {
           $show_details = false);
       }
       if ($has_help) {
-        $more[] = "Use **help** __command__ for a detailed command reference.";
+        $more[] = 'Use **help** __command__ for a detailed command reference.';
       }
     }
 
@@ -597,7 +595,7 @@ final class PhutilArgumentParser {
     // a quick hint about it.
     if (!empty($this->specs['show-standard-options']) &&
         !$this->getArg('show-standard-options')) {
-      $more[] = "Use __--show-standard-options__ to show additional options.";
+      $more[] = 'Use __--show-standard-options__ to show additional options.';
     }
 
     $out[] = null;
@@ -706,8 +704,8 @@ final class PhutilArgumentParser {
       if ($spec->getWildcard()) {
         if ($wildcard) {
           throw new PhutilArgumentSpecificationException(
-            "Two argument specifications are marked as wildcard arguments. ".
-            "You can have a maximum of one wildcard argument.");
+            'Two argument specifications are marked as wildcard arguments. '.
+            'You can have a maximum of one wildcard argument.');
         } else {
           $wildcard = $spec;
         }

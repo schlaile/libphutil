@@ -1,8 +1,5 @@
 <?php
 
-/**
- * @group twitch
- */
 final class PhutilTwitchFuture extends FutureProxy {
 
   private $future;
@@ -42,11 +39,11 @@ final class PhutilTwitchFuture extends FutureProxy {
       $params = $this->params;
 
       if (!$this->action) {
-        throw new Exception("You must setRawTwitchQuery()!");
+        throw new Exception('You must setRawTwitchQuery()!');
       }
 
       if (!$this->accessToken) {
-        throw new Exception("You must setAccessToken()!");
+        throw new Exception('You must setAccessToken()!');
       }
 
       $uri = new PhutilURI('https://api.twitch.tv/');

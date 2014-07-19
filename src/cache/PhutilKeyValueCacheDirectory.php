@@ -20,7 +20,6 @@
  *
  * @task  kvimpl    Key-Value Cache Implementation
  * @task  storage   Cache Storage
- * @group cache
  */
 final class PhutilKeyValueCacheDirectory extends PhutilKeyValueCache {
 
@@ -99,7 +98,7 @@ final class PhutilKeyValueCacheDirectory extends PhutilKeyValueCache {
         if (!Filesystem::pathExists($key_dir)) {
           Filesystem::createDirectory(
             $key_dir,
-            $mask = 0777,
+            $mask = 0755,
             $recursive = true);
         }
 
@@ -171,7 +170,7 @@ final class PhutilKeyValueCacheDirectory extends PhutilKeyValueCache {
   private function getCacheDirectory() {
     if (!$this->cacheDirectory) {
       throw new Exception(
-        "Call setCacheDirectory() before using a directory cache!");
+        'Call setCacheDirectory() before using a directory cache!');
     }
     return $this->cacheDirectory;
   }
@@ -216,7 +215,7 @@ final class PhutilKeyValueCacheDirectory extends PhutilKeyValueCache {
     }
 
     if (!Filesystem::pathExists($this->getCacheDirectory())) {
-      Filesystem::createDirectory($this->getCacheDirectory(), 0777, true);
+      Filesystem::createDirectory($this->getCacheDirectory(), 0755, true);
     }
 
     $lock = PhutilFileLock::newForPath($this->getCacheDirectory().'.lock');

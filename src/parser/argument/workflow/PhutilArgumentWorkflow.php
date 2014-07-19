@@ -73,7 +73,6 @@
  *
  * @stable
  * @concrete-extensible
- * @group console
  */
 class PhutilArgumentWorkflow {
 
@@ -112,7 +111,7 @@ class PhutilArgumentWorkflow {
 
   final public function getExamples() {
     if (!$this->examples) {
-      return "**".$this->name."**";
+      return '**'.$this->name.'**';
     }
     return $this->examples;
   }

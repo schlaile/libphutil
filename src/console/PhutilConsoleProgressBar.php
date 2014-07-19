@@ -33,6 +33,8 @@ final class PhutilConsoleProgressBar extends Phobject {
   private $drawn;
   private $console;
   private $finished;
+  private $lastUpdate;
+  private $quiet = false;
 
   public function setConsole(PhutilConsole $console) {
     $this->console = $console;
@@ -52,6 +54,11 @@ final class PhutilConsoleProgressBar extends Phobject {
     return $this;
   }
 
+  public function setQuiet($quiet) {
+    $this->quiet = $quiet;
+    return $this;
+  }
+
   public function update($work) {
     $this->done += $work;
     $this->redraw();
@@ -59,6 +66,15 @@ final class PhutilConsoleProgressBar extends Phobject {
   }
 
   private function redraw() {
+    if ($this->lastUpdate + 0.1 > microtime(true)) {
+      // We redrew the bar very recently; skip this update.
+      return;
+    }
+
+    if ($this->quiet) {
+      return;
+    }
+
     if ($this->finished) {
       return;
     }
@@ -85,6 +101,8 @@ final class PhutilConsoleProgressBar extends Phobject {
       return;
     }
 
+    $this->lastUpdate = microtime(true);
+
     if (!$this->drawn) {
       $this->drawn = true;
     }
@@ -110,7 +128,7 @@ final class PhutilConsoleProgressBar extends Phobject {
       sprintf('%.1f', 100 * $percent));
 
     $this->eraseLine();
-    $console->writeErr("%s", $out);
+    $console->writeErr('%s', $out);
   }
 
   public function done($clean_exit = true) {
@@ -118,7 +136,7 @@ final class PhutilConsoleProgressBar extends Phobject {
     if ($this->drawn) {
       $this->eraseLine();
       if ($clean_exit) {
-        $console->writeErr("%s\n", "Done.");
+        $console->writeErr("%s\n", 'Done.');
       }
     }
     $this->finished = true;

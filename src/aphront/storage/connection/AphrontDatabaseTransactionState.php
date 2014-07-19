@@ -2,8 +2,6 @@
 
 /**
  * Represents current transaction state of a connection.
- *
- * @group storage
  */
 final class AphrontDatabaseTransactionState {
 
@@ -39,7 +37,7 @@ final class AphrontDatabaseTransactionState {
 
   public function endReadLocking() {
     if ($this->readLockLevel == 0) {
-      throw new Exception("Too many calls to endReadLocking()!");
+      throw new Exception('Too many calls to endReadLocking()!');
     }
     $this->readLockLevel--;
     return $this;
@@ -56,7 +54,7 @@ final class AphrontDatabaseTransactionState {
 
   public function endWriteLocking() {
     if ($this->writeLockLevel == 0) {
-      throw new Exception("Too many calls to endWriteLocking()!");
+      throw new Exception('Too many calls to endWriteLocking()!');
     }
     $this->writeLockLevel--;
     return $this;

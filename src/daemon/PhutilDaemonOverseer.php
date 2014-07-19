@@ -2,8 +2,6 @@
 
 /**
  * Oversees a daemon and restarts it if it fails.
- *
- * @group daemon
  */
 final class PhutilDaemonOverseer {
 
@@ -120,13 +118,13 @@ EOHELP
     $this->daemonize  = $args->getArg('daemonize');
     $this->phddir     = $args->getArg('phd');
     $this->argv       = $argv;
-    $this->moreArgs   = $more;
+    $this->moreArgs   = coalesce($more, array());
 
     error_log("Bringing daemon '{$this->daemon}' online...");
 
     if (self::$instance) {
       throw new Exception(
-        "You may not instantiate more than one Overseer per process.");
+        'You may not instantiate more than one Overseer per process.');
     }
 
     self::$instance = $this;
@@ -141,7 +139,7 @@ EOHELP
 
       $pid = pcntl_fork();
       if ($pid === -1) {
-        throw new Exception("Unable to fork!");
+        throw new Exception('Unable to fork!');
       } else if ($pid) {
         exit(0);
       }
@@ -150,6 +148,7 @@ EOHELP
     if ($this->phddir) {
       $desc = array(
         'name'            => $this->daemon,
+        'argv'            => $this->moreArgs,
         'pid'             => getmypid(),
         'start'           => time(),
       );
@@ -161,7 +160,9 @@ EOHELP
     $this->daemonID = $this->generateDaemonID();
     $this->dispatchEvent(
       self::EVENT_DID_LAUNCH,
-      array('argv' => array_slice($original_argv, 1)));
+      array(
+        'argv' => array_slice($original_argv, 1),
+        'explicitArgv' => $this->moreArgs));
 
     declare(ticks = 1);
     pcntl_signal(SIGUSR1, array($this, 'didReceiveKeepaliveSignal'));

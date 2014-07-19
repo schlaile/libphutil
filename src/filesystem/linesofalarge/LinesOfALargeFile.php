@@ -16,7 +16,6 @@
  *
  * @task construct  Construction
  * @task internals  Internals
- * @group filesystem
  */
 final class LinesOfALargeFile extends LinesOfALarge {
 
@@ -80,7 +79,7 @@ final class LinesOfALargeFile extends LinesOfALarge {
     if (!$this->handle) {
       throw new FilesystemException(
         $this->fileName,
-        "Failed to open file!");
+        'Failed to open file!');
     }
   }
 
@@ -92,7 +91,6 @@ final class LinesOfALargeFile extends LinesOfALarge {
    * @task internals
    */
   public function readMore() {
-
     // NOTE: At least on OSX in reasonably normal test cases, increasing the
     // size of this read has no impact on performance.
 
@@ -100,7 +98,7 @@ final class LinesOfALargeFile extends LinesOfALarge {
     if ($more === false) {
       throw new FilesystemException(
         $this->fileName,
-        "Failed to read file!");
+        'Failed to read file!');
     }
     return $more;
   }

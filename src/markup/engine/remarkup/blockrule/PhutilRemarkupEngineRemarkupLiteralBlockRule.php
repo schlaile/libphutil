@@ -1,18 +1,15 @@
 <?php
 
-/**
- * @group markup
- */
 final class PhutilRemarkupEngineRemarkupLiteralBlockRule
   extends PhutilRemarkupEngineBlockRule {
 
   public function getMatchingLineCount(array $lines, $cursor) {
     $num_lines = 0;
-    if (preg_match("/^%%%/", $lines[$cursor])) {
+    if (preg_match('/^%%%/', $lines[$cursor])) {
       $num_lines++;
 
       while (isset($lines[$cursor])) {
-        if (!preg_match("/%%%\s*$/", $lines[$cursor])) {
+        if (!preg_match('/%%%\s*$/', $lines[$cursor])) {
           $num_lines++;
           $cursor++;
           continue;
@@ -33,4 +30,5 @@ final class PhutilRemarkupEngineRemarkupLiteralBlockRule
     $text = phutil_split_lines($text, $retain_endings = true);
     return phutil_implode_html(phutil_tag('br', array()), $text);
   }
+
 }

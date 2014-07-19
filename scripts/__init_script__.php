@@ -24,7 +24,7 @@ function __phutil_init_script__() {
     // script context we always want to show errors.
     'display_errors'              => true,
 
-    // Send script error messages to the server's error_log setting.
+    // Send script error messages to the server's `error_log` setting.
     'log_errors'                  => true,
 
     // Set the error log to the default, so errors go to stderr. Without this
@@ -37,7 +37,11 @@ function __phutil_init_script__() {
     // includes (and in other cases, like recursive filesystem operations
     // applied to 100+ levels of directory nesting). Stop it from triggering:
     // we explicitly limit recursive algorithms which should be limited.
-    'xdebug.max_nesting_level'    => null,
+    //
+    // After Feb 2014, XDebug interprets a value of 0 to mean "do not allow any
+    // function calls". Previously, 0 effectively disabled this check. For
+    // context, see T5027.
+    'xdebug.max_nesting_level'    => PHP_INT_MAX,
 
     // Don't limit memory, doing so just generally just prevents us from
     // processing large inputs without many tangible benefits.
@@ -58,6 +62,12 @@ function __phutil_init_script__() {
     // value.
     date_default_timezone_set('UTC');
   }
+
+  // Adjust `include_path`.
+  ini_set('include_path', implode(PATH_SEPARATOR, array(
+    dirname(dirname(__FILE__)).'/externals/includes',
+    ini_get('include_path'),
+  )));
 
   // Disable the insanely dangerous XML entity loader by default.
   if (function_exists('libxml_disable_entity_loader')) {
@@ -82,7 +92,7 @@ function __phutil_init_script__() {
 function __phutil_signal_handler__($signal_number) {
   $e = new Exception();
   $pid = getmypid();
-  // Some phabricator daemons may not be attached to a terminal.
+  // Some Phabricator daemons may not be attached to a terminal.
   Filesystem::writeFile(
     sys_get_temp_dir().'/phabricator_backtrace_'.$pid,
     $e->getTraceAsString());

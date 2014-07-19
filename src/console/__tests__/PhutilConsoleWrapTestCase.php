@@ -1,8 +1,5 @@
 <?php
 
-/**
- * @group testcase
- */
 final class PhutilConsoleWrapTestCase extends PhutilTestCase {
 
   public function testWrap() {
@@ -26,9 +23,9 @@ final class PhutilConsoleWrapTestCase extends PhutilTestCase {
           "abc abc!"),
       phutil_console_wrap(
         phutil_console_format(
-          "<bg:red>** ERROR **</bg> abc abc abc abc abc abc abc abc abc abc ".
-          "abc abc abc abc abc abc abc abc abc abc abc abc abc abc abc abc ".
-          "abc abc!")),
+          '<bg:red>** ERROR **</bg> abc abc abc abc abc abc abc abc abc abc '.
+          'abc abc abc abc abc abc abc abc abc abc abc abc abc abc abc abc '.
+          'abc abc!')),
       'ANSI escape sequences should not contribute toward wrap width.');
   }
 
@@ -45,6 +42,5 @@ EOTURTLES;
         rtrim(str_repeat('turtle ', 20)),
         $indent = 20));
   }
-
 
 }

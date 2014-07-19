@@ -14,13 +14,13 @@
  * @task  config    Configuring File Queries
  * @task  exec      Executing the File Query
  * @task  internal  Internal
- * @group filesystem
  */
 final class FileFinder {
 
   private $root;
   private $exclude = array();
   private $paths = array();
+  private $name = array();
   private $suffix = array();
   private $type;
   private $generateChecksums = false;
@@ -43,6 +43,14 @@ final class FileFinder {
    */
   public function excludePath($path) {
     $this->exclude[] = $path;
+    return $this;
+  }
+
+  /**
+   * @task config
+   */
+  public function withName($name) {
+    $this->name[] = $name;
     return $this;
   }
 
@@ -99,7 +107,13 @@ final class FileFinder {
    * @task internal
    */
   public function validateFile($file) {
-    $matches = (count($this->suffix) == 0);
+    $matches = !count($this->name) && !count($this->suffix);
+    foreach ($this->name as $curr_name) {
+      if (basename($file) === $curr_name) {
+        $matches = true;
+        break;
+      }
+    }
     foreach ($this->suffix as $curr_suffix) {
       if (fnmatch($curr_suffix, $file)) {
         $matches = true;
@@ -138,7 +152,7 @@ final class FileFinder {
     }
     foreach ($found as $filename) {
       // Only exclude files whose names match relative to the root.
-      if ($dir == "") {
+      if ($dir == '') {
         $matches = true;
         foreach ($this->exclude as $exclude_path) {
           if (fnmatch(ltrim($exclude_path, './'), $dir.$filename)) {
@@ -178,16 +192,16 @@ final class FileFinder {
         "with an absolute path.");
     }
 
-    if ($this->forceMode == "shell") {
+    if ($this->forceMode == 'shell') {
       $php_mode = false;
-    } else if ($this->forceMode == "php") {
+    } else if ($this->forceMode == 'php') {
       $php_mode = true;
     } else {
       $php_mode = (phutil_is_windows() || !Filesystem::binaryExists('find'));
     }
 
     if ($php_mode) {
-      $files = $this->getFiles("");
+      $files = $this->getFiles('');
     } else {
       $args = array();
       $command = array();
@@ -208,8 +222,10 @@ final class FileFinder {
         $args[] = $this->type;
       }
 
-      if ($this->suffix) {
-        $command[] = $this->generateList('name', $this->suffix);
+      if ($this->name || $this->suffix) {
+        $command[] = $this->generateList('name', array_merge(
+          $this->name,
+          $this->suffix));
       }
 
       if ($this->paths) {

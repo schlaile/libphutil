@@ -10,7 +10,6 @@
  * @task  construct   Construction
  * @task  interface   Interfacing with the User
  * @task  internal    Internals
- * @group console
  */
 final class PhutilConsole {
 
@@ -216,7 +215,7 @@ final class PhutilConsole {
     } else if ($this->messages) {
       $message = array_shift($this->messages);
     } else {
-      throw new Exception("waitForMessage() called with no messages!");
+      throw new Exception('waitForMessage() called with no messages!');
     }
 
     return $message;
