@@ -20,7 +20,7 @@
  *         $headers) = $future->resolve();
  *
  * Prefer @{method:resolvex} to @{method:resolve} as the former throws
- * @{class:HTTPFutureResponseStatusHTTP} on failures, which includes an
+ * @{class:HTTPFutureHTTPResponseStatus} on failures, which includes an
  * informative exception message.
  */
 final class HTTPFuture extends BaseHTTPFuture {
@@ -178,7 +178,7 @@ final class HTTPFuture extends BaseHTTPFuture {
     if (!$socket) {
       $this->stateReady = true;
       $this->result = $this->buildErrorResult(
-        HTTPFutureResponseStatusTransport::ERROR_CONNECTION_FAILED);
+        HTTPFutureTransportResponseStatus::ERROR_CONNECTION_FAILED);
       return null;
     }
 
@@ -207,13 +207,13 @@ final class HTTPFuture extends BaseHTTPFuture {
 
     if ($timeout) {
       $this->result = $this->buildErrorResult(
-        HTTPFutureResponseStatusTransport::ERROR_TIMEOUT);
+        HTTPFutureTransportResponseStatus::ERROR_TIMEOUT);
     } else if (!$this->stateConnected) {
       $this->result = $this->buildErrorResult(
-        HTTPFutureResponseStatusTransport::ERROR_CONNECTION_REFUSED);
+        HTTPFutureTransportResponseStatus::ERROR_CONNECTION_REFUSED);
     } else if (!$this->stateWriteComplete) {
       $this->result = $this->buildErrorResult(
-        HTTPFutureResponseStatusTransport::ERROR_CONNECTION_FAILED);
+        HTTPFutureTransportResponseStatus::ERROR_CONNECTION_FAILED);
     } else {
       $this->result = $this->parseRawHTTPResponse($this->response);
     }
@@ -226,9 +226,10 @@ final class HTTPFuture extends BaseHTTPFuture {
 
   private function buildErrorResult($error) {
     return array(
-      $status = new HTTPFutureResponseStatusTransport($error, $this->getURI()),
+      $status = new HTTPFutureTransportResponseStatus($error, $this->getURI()),
       $body = null,
-      $headers = array());
+      $headers = array(),
+    );
   }
 
   private function buildHTTPRequest() {
@@ -253,7 +254,8 @@ final class HTTPFuture extends BaseHTTPFuture {
         $data = http_build_query($data, '', '&')."\r\n";
         $add_headers[] = array(
           'Content-Type',
-          'application/x-www-form-urlencoded');
+          'application/x-www-form-urlencoded',
+        );
       }
     }
 
@@ -261,18 +263,21 @@ final class HTTPFuture extends BaseHTTPFuture {
 
     $add_headers[] = array(
       'Content-Length',
-      $length);
+      $length,
+    );
 
     if (!$this->getHeaders('User-Agent')) {
       $add_headers[] = array(
         'User-Agent',
-        $this->getDefaultUserAgent());
+        $this->getDefaultUserAgent(),
+      );
     }
 
     if (!$this->getHeaders('Host')) {
       $add_headers[] = array(
         'Host',
-        $this->host);
+        $this->host,
+      );
     }
 
     $headers = array_merge($this->getHeaders(), $add_headers);

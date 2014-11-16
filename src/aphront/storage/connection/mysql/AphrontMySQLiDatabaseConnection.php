@@ -4,7 +4,7 @@
  * @phutil-external-symbol class mysqli
  */
 final class AphrontMySQLiDatabaseConnection
-  extends AphrontMySQLDatabaseConnectionBase {
+  extends AphrontBaseMySQLDatabaseConnection {
 
   public function escapeUTF8String($string) {
     $this->validateUTF8String($string);
@@ -62,12 +62,15 @@ final class AphrontMySQLiDatabaseConnection
     $errno = $conn->connect_errno;
     if ($errno) {
       $error = $conn->connect_error;
-      throw new AphrontQueryConnectionException(
+      throw new AphrontConnectionQueryException(
         "Attempt to connect to {$user}@{$host} failed with error ".
         "#{$errno}: {$error}.", $errno);
     }
 
-    $conn->set_charset('utf8');
+    $ok = @$conn->set_charset('utf8mb4');
+    if (!$ok) {
+      $ok = $conn->set_charset('utf8');
+    }
 
     return $conn;
   }

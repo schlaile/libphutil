@@ -26,13 +26,15 @@ class JsonLintJsonParser
 {
     const DETECT_KEY_CONFLICTS = 1;
     const ALLOW_DUPLICATE_KEYS = 2;
+    const PARSE_TO_ASSOC = 4;
+
+    private $lexer;
 
     private $flags;
     private $stack;
     private $vstack; // semantic value stack
     private $lstack; // location stack
 
-    private $yy;
     private $symbols = array(
         'error'                 => 2,
         'JSONString'            => 3,
@@ -227,7 +229,7 @@ class JsonLintJsonParser
                 // just recovered from another error
                 if ($recovering == 3) {
                     if ($symbol == $EOF) {
-                        throw new JsonLintParsingException($errStr ?: 'Parsing halted.');
+                        throw new JsonLintParsingException($errStr ? $errStr : 'Parsing halted.');
                     }
 
                     // discard current lookahead and grab another
@@ -245,7 +247,7 @@ class JsonLintJsonParser
                         break;
                     }
                     if ($state == 0) {
-                        throw new JsonLintParsingException($errStr ?: 'Parsing halted.');
+                        throw new JsonLintParsingException($errStr ? $errStr : 'Parsing halted.');
                     }
                     $this->popStack(1);
                     $state = $this->stack[count($this->stack)-1];
@@ -291,9 +293,9 @@ class JsonLintJsonParser
                     $yyval->token = $this->vstack[count($this->vstack) - $len]; // default to $$ = $1
                     // default location, uses first token for firsts, last for lasts
                     $yyval->store = array( // _$ = store
-                        'first_line' => $this->lstack[count($this->lstack) - ($len ?: 1)]['first_line'],
+                        'first_line' => $this->lstack[count($this->lstack) - ($len ? $len : 1)]['first_line'],
                         'last_line' => $this->lstack[count($this->lstack) - 1]['last_line'],
-                        'first_column' => $this->lstack[count($this->lstack) - ($len ?: 1)]['first_column'],
+                        'first_column' => $this->lstack[count($this->lstack) - ($len ? $len : 1)]['first_column'],
                         'last_column' => $this->lstack[count($this->lstack) - 1]['last_column'],
                     );
                     $r = $this->performAction($yyval, $yytext, $yyleng, $yylineno, $action[1], $this->vstack, $this->lstack);
@@ -358,7 +360,11 @@ class JsonLintJsonParser
         case 6:
             return $yyval->token = $tokens[$len-1];
         case 13:
-            $yyval->token = array();
+            if ($this->flags & self::PARSE_TO_ASSOC) {
+                $yyval->token = array();
+            } else {
+                $yyval->token = new stdClass;
+            }
             break;
         case 14:
             $yyval->token = $tokens[$len-1];
@@ -367,22 +373,45 @@ class JsonLintJsonParser
             $yyval->token = array($tokens[$len-2], $tokens[$len]);
             break;
         case 16:
-            $yyval->token = array();
             $property = $tokens[$len][0];
-            $yyval->token[$property] = $tokens[$len][1];
+            if ($this->flags & self::PARSE_TO_ASSOC) {
+                $yyval->token = array();
+                $yyval->token[$property] = $tokens[$len][1];
+            } else {
+                $yyval->token = new stdClass;
+                $yyval->token->$property = $tokens[$len][1];
+            }
             break;
         case 17:
-            $yyval->token = $tokens[$len-2];
-            $key = $tokens[$len][0];
-            if (($this->flags & self::DETECT_KEY_CONFLICTS) && array_key_exists($key, $tokens[$len-2])) {
-                $errStr = 'Parse error on line ' . ($yylineno+1) . ":\n";
-                $errStr .= $this->lexer->showPosition() . "\n";
-                $errStr .= "Duplicate key: ".$tokens[$len][0];
-                throw new JsonLintParsingException($errStr);
-            } elseif (($this->flags & self::ALLOW_DUPLICATE_KEYS) && array_key_exists($key, $tokens[$len-2])) {
-                // Forget about it...
+            if ($this->flags & self::PARSE_TO_ASSOC) {
+                $yyval->token =& $tokens[$len-2];
+                $key = $tokens[$len][0];
+                if (($this->flags & self::DETECT_KEY_CONFLICTS) && isset($tokens[$len-2][$key])) {
+                    $errStr = 'Parse error on line ' . ($yylineno+1) . ":\n";
+                    $errStr .= $this->lexer->showPosition() . "\n";
+                    $errStr .= "Duplicate key: ".$tokens[$len][0];
+                    throw new JsonLintParsingException($errStr);
+                } elseif (($this->flags & self::ALLOW_DUPLICATE_KEYS) && isset($tokens[$len-2][$key])) {
+                    // Forget about it...
+                }
+                $tokens[$len-2][$key] = $tokens[$len][1];
+            } else {
+                $yyval->token = $tokens[$len-2];
+                $key = $tokens[$len][0];
+                if (($this->flags & self::DETECT_KEY_CONFLICTS) && isset($tokens[$len-2]->{$key})) {
+                    $errStr = 'Parse error on line ' . ($yylineno+1) . ":\n";
+                    $errStr .= $this->lexer->showPosition() . "\n";
+                    $errStr .= "Duplicate key: ".$tokens[$len][0];
+                    throw new JsonLintParsingException($errStr);
+                } elseif (($this->flags & self::ALLOW_DUPLICATE_KEYS) && isset($tokens[$len-2]->{$key})) {
+                    $duplicateCount = 1;
+                    do {
+                        $duplicateKey = $key . '.' . $duplicateCount++;
+                    } while (isset($tokens[$len-2]->$duplicateKey));
+                    $key = $duplicateKey;
+                }
+                $tokens[$len-2]->$key = $tokens[$len][1];
             }
-            $yyval->token[$key] = $tokens[$len][1];
             break;
         case 18:
             $yyval->token = array();
@@ -435,7 +464,10 @@ class JsonLintJsonParser
 
     private function lex()
     {
-        $token = $this->lexer->lex() ?: 1; // $end = 1
+        $token = $this->lexer->lex();
+        if (!$token) {
+            $token = 1;
+        }
         // if token isn't its numeric value, convert
         if (!is_numeric($token)) {
             $token = isset($this->symbols[$token]) ? $this->symbols[$token] : $token;

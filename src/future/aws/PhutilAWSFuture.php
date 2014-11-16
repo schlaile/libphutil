@@ -62,7 +62,7 @@ abstract class PhutilAWSFuture extends FutureProxy {
       }
 
       $params['AWSAccessKeyId'] = $this->getAWSAccessKey();
-      $params['Version']        = '2011-12-15';
+      $params['Version']        = '2013-10-15';
       $params['Timestamp']      = date('c');
 
       $params = $this->sign($params);
@@ -86,7 +86,7 @@ abstract class PhutilAWSFuture extends FutureProxy {
     }
 
     if ($status->isError() || !$xml) {
-      if (!($status instanceof HTTPFutureResponseStatusHTTP)) {
+      if (!($status instanceof HTTPFutureHTTPResponseStatus)) {
         throw $status;
       }
 

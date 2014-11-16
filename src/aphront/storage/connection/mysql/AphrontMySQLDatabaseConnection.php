@@ -1,7 +1,7 @@
 <?php
 
 final class AphrontMySQLDatabaseConnection
-  extends AphrontMySQLDatabaseConnectionBase {
+  extends AphrontBaseMySQLDatabaseConnection {
 
   public function escapeUTF8String($string) {
     $this->validateUTF8String($string);
@@ -60,7 +60,7 @@ final class AphrontMySQLDatabaseConnection
     if (!$conn) {
       $errno = mysql_errno();
       $error = mysql_error();
-      throw new AphrontQueryConnectionException(
+      throw new AphrontConnectionQueryException(
         "Attempt to connect to {$user}@{$host} failed with error ".
         "#{$errno}: {$error}.", $errno);
     }
@@ -72,7 +72,10 @@ final class AphrontMySQLDatabaseConnection
       }
     }
 
-    mysql_set_charset('utf8', $conn);
+    $ok = @mysql_set_charset('utf8mb4', $conn);
+    if (!$ok) {
+      mysql_set_charset('utf8', $conn);
+    }
 
     return $conn;
   }

@@ -58,6 +58,18 @@ abstract class AASTNode {
     return $this->children;
   }
 
+  public function getChildrenOfType($type) {
+    $nodes = array();
+
+    foreach ($this->children as $child) {
+      if ($child->getTypeName() == $type) {
+        $nodes[] = $child;
+      }
+    }
+
+    return $nodes;
+  }
+
   public function getChildOfType($index, $type) {
     $child = $this->getChildByIndex($index);
     if ($child->getTypeName() != $type) {
@@ -130,22 +142,32 @@ abstract class AASTNode {
     return $this->tokenCache;
   }
 
+  public function selectTokensOfType($type_name) {
+    return $this->selectTokensOfTypes(array($type_name));
+  }
 
   /**
-   * Select all tokens of a given type.
+   * Select all tokens of any given types.
    */
-  public function selectTokensOfType($type_name) {
-    if (isset($this->tokenCache)) {
-      return idx($this->tokenCache, $type_name, array());
-    } else {
-      $result = array();
-      foreach ($this->getTokens() as $id => $token) {
-        if ($token->getTypeName() == $type_name) {
-          $result[$id] = $token;
+  public function selectTokensOfTypes(array $type_names) {
+    $tokens = array();
+
+    foreach ($type_names as $type_name) {
+      if (isset($this->tokenCache)) {
+        $cached_tokens = idx($this->tokenCache, $type_name, array());
+        foreach ($cached_tokens as $id => $cached_token) {
+          $tokens[$id] = $cached_token;
+        }
+      } else {
+        foreach ($this->getTokens() as $id => $token) {
+          if ($token->getTypeName() == $type_name) {
+            $tokens[$id] = $token;
+          }
         }
       }
-      return $result;
     }
+
+    return $tokens;
   }
 
   public function selectDescendantsOfType($type_name) {
@@ -233,6 +255,15 @@ abstract class AASTNode {
     return $stream[$this->l]->getOffset();
   }
 
+  public function getLength() {
+    $stream = $this->tree->getRawTokenStream();
+    if (empty($stream[$this->r])) {
+      return null;
+    }
+    return $stream[$this->r]->getOffset() - $this->getOffset();
+  }
+
+
   public function getSurroundingNonsemanticTokens() {
     $before = array();
     $after  = array();
@@ -252,6 +283,12 @@ abstract class AASTNode {
 
   public function getLineNumber() {
     return idx($this->tree->getOffsetToLineNumberMap(), $this->getOffset());
+  }
+
+  public function getEndLineNumber() {
+    return idx(
+      $this->tree->getOffsetToLineNumberMap(),
+      $this->getOffset() + $this->getLength());
   }
 
   public function dispose() {
