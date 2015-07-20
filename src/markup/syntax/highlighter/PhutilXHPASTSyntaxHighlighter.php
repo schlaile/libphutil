@@ -1,6 +1,6 @@
 <?php
 
-final class PhutilXHPASTSyntaxHighlighter {
+final class PhutilXHPASTSyntaxHighlighter extends Phobject {
 
   public function getHighlightFuture($source) {
     $scrub = false;
@@ -10,7 +10,7 @@ final class PhutilXHPASTSyntaxHighlighter {
     }
 
     return new PhutilXHPASTSyntaxHighlighterFuture(
-      xhpast_get_parser_future($source),
+      PhutilXHPASTBinary::getParserFuture($source),
       $source,
       $scrub);
   }

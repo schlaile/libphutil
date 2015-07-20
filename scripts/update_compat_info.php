@@ -4,8 +4,17 @@
 require_once dirname(__FILE__).'/__init_script__.php';
 
 $target = 'resources/php_compat_info.json';
-echo "Purpose: Updates {$target} used by ArcanistXHPASTLinter.\n";
+echo phutil_console_format(
+  "%s\n",
+  pht(
+    'Purpose: Updates %s used by %s.',
+    $target,
+    'ArcanistXHPASTLinter'));
 
+// PHP CompatInfo is installed via Composer.
+//
+// You should symlink the Composer vendor directory to
+// libphutil/externals/includes/vendor`.
 require_once 'vendor/autoload.php';
 
 $output = array();
@@ -15,91 +24,74 @@ $output['functions'] = array();
 $output['classes'] = array();
 $output['interfaces'] = array();
 $output['constants'] = array();
-$output['classMethods'] = array();
 
-$references = array(
-  new \Bartlett\CompatInfo\Reference\Extension\ApcExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\BcmathExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\CoreExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\CurlExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\DateExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\DomExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\FileinfoExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\GdExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\GettextExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\HttpExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\ImagickExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\IntlExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\JsonExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\LdapExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\LibxmlExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\MbstringExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\MysqlExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\MysqliExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\OpensslExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\PcntlExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\PcreExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\PdoExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\PharExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\PosixExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\ReflectionExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\SimplexmlExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\SocketsExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\StandardExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\SplExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\XmlExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\XmlreaderExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\XmlwriterExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\YamlExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\ZipExtension(),
-  new \Bartlett\CompatInfo\Reference\Extension\ZlibExtension(),
-);
+/**
+ * Transform compatibility info into a slightly different format.
+ *
+ * The data returned by PHP CompatInfo is slightly odd in that null data is
+ * represented by an empty string.
+ *
+ * @param  map<string, string>
+ * @return map<string, string | null>
+ */
+function parse_compat_info(array $compat) {
+  return array(
+    'ext.name' => $compat['ext.name'],
+    'ext.min' => nonempty($compat['ext.min'], null),
+    'ext.max' => nonempty($compat['ext.max'], null),
+    'php.min' => nonempty($compat['php.min'], null),
+    'php.max' => nonempty($compat['php.max'], null),
+  );
+}
 
-foreach ($references as $reference) {
-  foreach ($reference->getFunctions() as $function => $compat) {
-    $output['functions'][$function] = array(
-      'min' => nonempty($compat['php.min'], null),
-      'max' => nonempty($compat['php.max'], null),
-      'ref' => $reference->getName(),
-    );
+$client = new \Bartlett\Reflect\Client();
+$api = $client->api('reference');
+
+foreach ($api->dir() as $extension) {
+  $result = $api->show(
+    $extension->name,
+    false,
+    false,
+    false,
+    true,
+    true,
+    true,
+    true,
+    true);
+
+  foreach ($result['constants'] as $constant => $compat) {
+    $output['constants'][$constant] = parse_compat_info($compat);
+  }
+
+  foreach ($result['functions'] as $function => $compat) {
+    $output['functions'][$function] = parse_compat_info($compat);
 
     if (idx($compat, 'parameters')) {
-      $output['params'][$function] = array_map(
-        'trim', explode(',', $compat['parameters']));
+      $output['params'][$function] = explode(', ', $compat['parameters']);
     }
   }
 
-  foreach ($reference->getInterfaces() as $interface => $compat) {
-    $output['interfaces'][$interface] = array(
-      'min' => nonempty($compat['php.min'], null),
-      'max' => nonempty($compat['php.max'], null),
-    );
+  foreach ($result['classes'] as $class => $compat) {
+    $output['classes'][$class] = parse_compat_info($compat);
   }
 
-  foreach ($reference->getClasses() as $class => $compat) {
-    $output['classes'][$class] = array(
-      'min' => nonempty($compat['php.min'], null),
-      'max' => nonempty($compat['php.max'], null),
-    );
+  foreach ($result['interfaces'] as $interface => $compat) {
+    $output['interfaces'][$interface] = parse_compat_info($compat);
   }
 
-  foreach ($reference->getConstants() as $constant => $compat) {
-    $output['constants'][$constant] = array(
-      'min' => nonempty($compat['php.min'], null),
-      'max' => nonempty($compat['php.max'], null),
-    );
-  }
-
-  foreach ($reference->getClassMethods() as $class => $methods) {
-    if (!array_key_exists($class, $output['classMethods'])) {
-      $output['classMethods'][$class] = array();
-    }
+  foreach ($result['methods'] as $class => $methods) {
+    $output['methods'][$class] = array();
 
     foreach ($methods as $method => $compat) {
-      $output['classMethods'][$class][$method] = array(
-        'min' => nonempty($compat['php.min'], null),
-        'max' => nonempty($compat['php.max'], null),
-      );
+      $output['methods'][$class][$method] = parse_compat_info($compat);
+    }
+  }
+
+  foreach ($result['static methods'] as $class => $methods) {
+    $output['static_methods'][$class] = array();
+
+    foreach ($methods as $method => $compat) {
+      $output['static_methods'][$class][$method] = parse_compat_info($compat);
     }
   }
 }
@@ -109,9 +101,10 @@ ksort($output['functions']);
 ksort($output['classes']);
 ksort($output['interfaces']);
 ksort($output['constants']);
-ksort($output['classMethods']);
 
 // Grepped from PHP Manual.
+// TODO: Can we get this from PHP CompatInfo?
+// See https://github.com/llaville/php-compat-info/issues/185.
 $output['functions_windows'] = array(
   'apache_child_terminate' => false,
   'chroot' => false,
@@ -144,4 +137,4 @@ Filesystem::writeFile(
   phutil_get_library_root('phutil').'/../'.$target,
   id(new PhutilJSON())->encodeFormatted($output));
 
-echo "Done.\n";
+echo pht('Done.')."\n";

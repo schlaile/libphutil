@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * IMPORTANT: Do not call any libphutil functions in this class, including
+ * functions like @{function:id}, @{function:idx} and @{function:pht}. They
+ * may not have loaded yet.
+ */
 final class PhutilBootloader {
 
   private static $instance;
@@ -7,8 +12,10 @@ final class PhutilBootloader {
   private $registeredLibraries  = array();
   private $libraryMaps          = array();
   private $extensionMaps        = array();
+  private $extendedMaps = array();
   private $currentLibrary       = null;
   private $classTree            = array();
+  private $inMemoryMaps         = array();
 
   public static function getInstance() {
     if (!self::$instance) {
@@ -23,6 +30,13 @@ final class PhutilBootloader {
 
   public function getClassTree() {
     return $this->classTree;
+  }
+
+  public function registerInMemoryLibrary($name, $map) {
+    $this->registeredLibraries[$name] = "memory:$name";
+    $this->inMemoryMaps[$name] = $map;
+
+    $this->getLibraryMap($name);
   }
 
   public function registerLibrary($name, $path) {
@@ -101,18 +115,26 @@ final class PhutilBootloader {
   }
 
   public function getLibraryMap($name) {
+    if (isset($this->extendedMaps[$name])) {
+      return $this->extendedMaps[$name];
+    }
+
     if (empty($this->libraryMaps[$name])) {
       $root = $this->getLibraryRoot($name);
       $this->currentLibrary = $name;
-      $okay = include $root.'/__phutil_library_map__.php';
-      if (!$okay) {
-        throw new PhutilBootloaderException(
-          "Include of '{$root}/__phutil_library_map__.php' failed!");
+
+      if (isset($this->inMemoryMaps[$name])) {
+        $this->libraryMaps[$name] = $this->inMemoryMaps[$name];
+      } else {
+        $okay = include $root.'/__phutil_library_map__.php';
+        if (!$okay) {
+          throw new PhutilBootloaderException(
+            "Include of '{$root}/__phutil_library_map__.php' failed!");
+        }
       }
 
       $map = $this->libraryMaps[$name];
 
-      // NOTE: We can't use "idx()" here because it may not be loaded yet.
       $version = isset($map['__library_version__'])
         ? $map['__library_version__']
         : 1;
@@ -149,6 +171,8 @@ final class PhutilBootloader {
         $map[$dict_key] += $emap[$dict_key];
       }
     }
+
+    $this->extendedMaps[$name] = $map;
 
     return $map;
   }
@@ -258,6 +282,10 @@ final class PhutilBootloader {
         $this->extensionMaps[$library]['xmap'][$class] = $xmap;
       }
     }
+
+    // Clear the extended library cache (should one exist) so we know that
+    // we need to rebuild it.
+    unset($this->extendedMaps[$library]);
   }
 
 }

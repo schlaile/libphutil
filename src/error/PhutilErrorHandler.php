@@ -29,7 +29,7 @@
  * @task trap     Error Traps
  * @task internal Internals
  */
-final class PhutilErrorHandler {
+final class PhutilErrorHandler extends Phobject {
 
   private static $errorListener = null;
   private static $initialized = false;
@@ -53,8 +53,8 @@ final class PhutilErrorHandler {
    */
   public static function initialize() {
     self::$initialized = true;
-    set_error_handler(array('PhutilErrorHandler', 'handleError'));
-    set_exception_handler(array('PhutilErrorHandler', 'handleException'));
+    set_error_handler(array(__CLASS__, 'handleError'));
+    set_exception_handler(array(__CLASS__, 'handleException'));
   }
 
   /**
@@ -251,7 +251,7 @@ final class PhutilErrorHandler {
       array(
         'file'  => $ex->getFile(),
         'line'  => $ex->getLine(),
-        'trace' => self::getRootException($ex)->getTrace(),
+        'trace' => self::getExceptionTrace($ex),
         'catch_trace' => debug_backtrace(),
       ));
 
@@ -287,8 +287,26 @@ final class PhutilErrorHandler {
    */
   public static function formatStacktrace($trace) {
     $result = array();
+
+    $libinfo = self::getLibraryVersions();
+    if ($libinfo) {
+      foreach ($libinfo as $key => $dict) {
+        $info = array();
+        foreach ($dict as $dkey => $dval) {
+          $info[] = $dkey.'='.$dval;
+        }
+        $libinfo[$key] = $key.'('.implode(', ', $info).')';
+      }
+      $result[] = implode(', ', $libinfo);
+    }
+
     foreach ($trace as $key => $entry) {
       $line = '  #'.$key.' ';
+      if (!empty($entry['xid'])) {
+        if ($entry['xid'] != 1) {
+          $line .= '<#'.$entry['xid'].'> ';
+        }
+      }
       if (isset($entry['class'])) {
         $line .= $entry['class'].'::';
       }
@@ -336,7 +354,7 @@ final class PhutilErrorHandler {
     $timestamp = strftime('%Y-%m-%d %H:%M:%S');
 
     switch ($event) {
-      case PhutilErrorHandler::ERROR:
+      case self::ERROR:
         $default_message = sprintf(
           '[%s] ERROR %d: %s at [%s:%d]',
           $timestamp,
@@ -349,7 +367,7 @@ final class PhutilErrorHandler {
         error_log($default_message);
         self::outputStacktrace($metadata['trace']);
         break;
-      case PhutilErrorHandler::EXCEPTION:
+      case self::EXCEPTION:
         $messages = array();
         $current = $value;
         do {
@@ -370,9 +388,9 @@ final class PhutilErrorHandler {
 
         $metadata['default_message'] = $default_message;
         error_log($default_message);
-        self::outputStacktrace(self::getRootException($value)->getTrace());
+        self::outputStacktrace($metadata['trace']);
         break;
-      case PhutilErrorHandler::PHLOG:
+      case self::PHLOG:
         $default_message = sprintf(
           '[%s] PHLOG: %s at [%s:%d]',
           $timestamp,
@@ -383,7 +401,7 @@ final class PhutilErrorHandler {
         $metadata['default_message'] = $default_message;
         error_log($default_message);
         break;
-      case PhutilErrorHandler::DEPRECATED:
+      case self::DEPRECATED:
         $default_message = sprintf(
           '[%s] DEPRECATED: %s is deprecated; %s',
           $timestamp,
@@ -394,7 +412,7 @@ final class PhutilErrorHandler {
         error_log($default_message);
         break;
       default:
-        error_log('Unknown event '.$event);
+        error_log(pht('Unknown event %s', $event));
         break;
     }
 
@@ -438,6 +456,141 @@ final class PhutilErrorHandler {
     }
 
     return $path;
+  }
+
+  public static function getLibraryVersions() {
+    $libinfo = array();
+
+    $bootloader = PhutilBootloader::getInstance();
+    foreach ($bootloader->getAllLibraries() as $library) {
+      $root = phutil_get_library_root($library);
+      $try_paths = array(
+        $root,
+        dirname($root),
+      );
+      $libinfo[$library] = array();
+
+      $get_refs = array('master');
+      foreach ($try_paths as $try_path) {
+        // Try to read what the HEAD of the repository is pointed at. This is
+        // normally the name of a branch ("ref").
+        $try_file = $try_path.'/.git/HEAD';
+        if (@file_exists($try_file)) {
+          $head = @file_get_contents($try_file);
+          $matches = null;
+          if (preg_match('(^ref: refs/heads/(.*)$)', trim($head), $matches)) {
+            $libinfo[$library]['head'] = trim($matches[1]);
+            $get_refs[] = trim($matches[1]);
+          } else {
+            $libinfo[$library]['head'] = trim($head);
+          }
+          break;
+        }
+      }
+
+      // Try to read which commit relevant branch heads are at.
+      foreach (array_unique($get_refs) as $ref) {
+        foreach ($try_paths as $try_path) {
+          $try_file = $try_path.'/.git/refs/heads/'.$ref;
+          if (@file_exists($try_file)) {
+            $hash = @file_get_contents($try_file);
+            if ($hash) {
+              $libinfo[$library]['ref.'.$ref] = substr(trim($hash), 0, 12);
+              break;
+            }
+          }
+        }
+      }
+
+      // Look for extension files.
+      $custom = @scandir($root.'/extensions/');
+      if ($custom) {
+        $count = 0;
+        foreach ($custom as $custom_path) {
+          if (preg_match('/\.php$/', $custom_path)) {
+            $count++;
+          }
+        }
+        if ($count) {
+          $libinfo[$library]['custom'] = $count;
+        }
+      }
+    }
+
+    ksort($libinfo);
+
+    return $libinfo;
+  }
+
+  /**
+   * Get a full trace across all proxied and aggregated exceptions.
+   *
+   * This attempts to build a set of stack frames which completely represent
+   * all of the places an exception came from, even if it came from multiple
+   * origins and has been aggregated or proxied.
+   *
+   * @param Exception Exception to retrieve a trace for.
+   * @return list<wild> List of stack frames.
+   */
+  public static function getExceptionTrace(Exception $ex) {
+    $id = 1;
+
+    // Keep track of discovered exceptions which we need to build traces for.
+    $stack = array(
+      array($id, $ex),
+    );
+
+    $frames = array();
+    while ($info = array_shift($stack)) {
+      list($xid, $ex) = $info;
+
+      // We're going from top-level exception down in bredth-first order, but
+      // want to build a trace in approximately standard order (deepest part of
+      // the call stack to most shallow) so we need to reverse each list of
+      // frames and then reverse everything at the end.
+
+      $ex_frames = array_reverse($ex->getTrace());
+      $ex_frames = array_values($ex_frames);
+      $last_key = (count($ex_frames) - 1);
+      foreach ($ex_frames as $frame_key => $frame) {
+        $frame['xid'] = $xid;
+
+        // If this is a child/previous exception and we're on the deepest frame
+        // and missing file/line data, fill it in from the exception itself.
+        if ($xid > 1 && ($frame_key == $last_key)) {
+          if (empty($frame['file'])) {
+            $frame['file'] = $ex->getFile();
+            $frame['line'] = $ex->getLine();
+          }
+        }
+
+        // Since the exceptions are likely to share the most shallow frames,
+        // try to add those to the trace only once.
+        if (isset($frame['file']) && isset($frame['line'])) {
+          $signature = $frame['file'].':'.$frame['line'];
+          if (empty($frames[$signature])) {
+            $frames[$signature] = $frame;
+          }
+        } else {
+          $frames[] = $frame;
+        }
+      }
+
+      // If this is a proxy exception, add the proxied exception.
+      $prev = self::getPreviousException($ex);
+      if ($prev) {
+        $stack[] = array(++$id, $prev);
+      }
+
+      // If this is an aggregate exception, add the child exceptions.
+      if ($ex instanceof PhutilAggregateException) {
+        foreach ($ex->getExceptions() as $child) {
+          $stack[] = array(++$id, $child);
+        }
+      }
+    }
+
+    return array_values(array_reverse($frames));
   }
 
 }

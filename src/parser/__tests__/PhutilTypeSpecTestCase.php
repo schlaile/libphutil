@@ -104,7 +104,7 @@ final class PhutilTypeSpecTestCase extends PhutilTestCase {
 
     foreach ($map as $expect => $tests) {
       if (is_int($expect)) {
-        $expect = (bool) $expect;
+        $expect = (bool)$expect;
       }
 
       foreach ($tests as $input) {
@@ -132,9 +132,10 @@ final class PhutilTypeSpecTestCase extends PhutilTestCase {
       'map<int, list<string>>'  => array(1 => array('x', 'y')),
       'stdClass'                => new stdClass(),
       'list<Exception>'         => array(
-                                     new Exception(),
-                                     new LogicException(),
-                                     new RuntimeException()),
+        new Exception(),
+        new LogicException(),
+        new RuntimeException(),
+      ),
       'map<string, stdClass>'   => array('x' => new stdClass()),
     );
 

@@ -9,7 +9,7 @@
  * @task symbol   Symbol Analysis and Caching
  * @task source   Source Management
  */
-final class PhutilLibraryMapBuilder {
+final class PhutilLibraryMapBuilder extends Phobject {
 
   private $root;
   private $quiet = true;
@@ -108,7 +108,7 @@ final class PhutilLibraryMapBuilder {
   public function buildAndWriteMap() {
     $library_map = $this->buildMap();
 
-    $this->log("Writing map...\n");
+    $this->log(pht('Writing map...'));
     $this->writeLibraryMap($library_map);
   }
 
@@ -122,7 +122,7 @@ final class PhutilLibraryMapBuilder {
    */
   private function log($message) {
     if (!$this->quiet) {
-      @fwrite(STDERR, $message);
+      @fwrite(STDERR, "%s\n", $message);
     }
     return $this;
   }
@@ -198,8 +198,9 @@ final class PhutilLibraryMapBuilder {
 
     $symbol_cache = array();
     if ($cache) {
-      $symbol_cache = json_decode($cache, true);
-      if (!is_array($symbol_cache)) {
+      try {
+        $symbol_cache = phutil_json_decode($cache);
+      } catch (PhutilJSONParserException $ex) {
         $symbol_cache = array();
       }
     }
@@ -238,7 +239,7 @@ final class PhutilLibraryMapBuilder {
     try {
       Filesystem::writeFile($cache_file, $json);
     } catch (FilesystemException $ex) {
-      $this->log("Unable to save the cache!\n");
+      $this->log(pht('Unable to save the cache!'));
     }
   }
 
@@ -250,7 +251,7 @@ final class PhutilLibraryMapBuilder {
    * @task symbol
    */
   public function dropSymbolCache() {
-    $this->log("Dropping symbol cache...\n");
+    $this->log(pht('Dropping symbol cache...'));
     Filesystem::remove($this->getPathForSymbolCache());
   }
 
@@ -290,7 +291,11 @@ final class PhutilLibraryMapBuilder {
 
     $init = $this->getPathForLibraryInit();
     if (!Filesystem::pathExists($init)) {
-      throw new Exception("Provided path '{$root}' is not a phutil library.");
+      throw new Exception(
+        pht(
+          "Provided path '%s' is not a %s library.",
+          $root,
+          'phutil'));
     }
 
     $files = id(new FileFinder($root))
@@ -347,9 +352,14 @@ final class PhutilLibraryMapBuilder {
           if (!empty($library_map[$lib_type][$symbol])) {
             $prior = $library_map[$lib_type][$symbol];
             throw new Exception(
-              "Definition of {$type} '{$symbol}' in file '{$file}' duplicates ".
-              "prior definition in file '{$prior}'. You can not declare the ".
-              "same symbol twice.");
+              pht(
+                "Definition of %s '%s' in file '%s' duplicates prior ".
+                "definition in file '%s'. You can not declare the ".
+                "same symbol twice.",
+                $type,
+                $symbol,
+                $file,
+                $prior));
           }
           $library_map[$lib_type][$symbol] = $file;
         }
@@ -418,14 +428,23 @@ EOPHP;
    */
   private function analyzeLibrary() {
     // Identify all the ".php" source files in the library.
-    $this->log("Finding source files...\n");
+    $this->log(pht('Finding source files...'));
     $source_map = $this->loadSourceFileMap();
-    $this->log("Found ".number_format(count($source_map))." files.\n");
+    $this->log(
+      pht('Found %s files.', new PhutilNumber(count($source_map))));
 
     // Load the symbol cache with existing parsed symbols. This allows us
     // to remap libraries quickly by analyzing only changed files.
-    $this->log("Loading symbol cache...\n");
+    $this->log(pht('Loading symbol cache...'));
     $symbol_cache = $this->loadSymbolCache();
+
+    // If the XHPAST binary is not up-to-date, build it now. Otherwise,
+    // `phutil_symbols.php` will attempt to build the binary and will fail
+    // miserably because it will be trying to build the same file multiple
+    // times in parallel.
+    if (!PhutilXHPASTBinary::isAvailable()) {
+      PhutilXHPASTBinary::build();
+    }
 
     // Build out the symbol analysis for all the files in the library. For
     // each file, check if it's in cache. If we miss in the cache, do a fresh
@@ -439,14 +458,16 @@ EOPHP;
       }
       $futures[$file] = $this->buildSymbolAnalysisFuture($file);
     }
-    $this->log("Found ".number_format(count($symbol_map))." files in cache.\n");
+    $this->log(
+      pht('Found %s files in cache.', new PhutilNumber(count($symbol_map))));
 
     // Run the analyzer on any files which need analysis.
     if ($futures) {
       $limit = $this->subprocessLimit;
       $count = number_format(count($futures));
 
-      $this->log("Analyzing {$count} files with {$limit} subprocesses...\n");
+      $this->log(
+        pht('Analyzing %d files with %d subprocesses...', $count, $limit));
 
       $progress = new PhutilConsoleProgressBar();
       if ($this->quiet) {
@@ -454,7 +475,9 @@ EOPHP;
       }
       $progress->setTotal(count($futures));
 
-      foreach (Futures($futures)->limit($limit) as $file => $future) {
+      $futures = id(new FutureIterator($futures))
+        ->limit($limit);
+      foreach ($futures as $file => $future) {
         $result = $future->resolveJSON();
         if (empty($result['error'])) {
           $symbol_map[$file] = $result;
@@ -477,7 +500,7 @@ EOPHP;
     $this->writeSymbolCache($symbol_map, $source_map);
 
     // Our map is up to date, so either show it on stdout or write it to disk.
-    $this->log("Building library map...\n");
+    $this->log(pht('Building library map...'));
 
     $this->librarySymbolMap = $this->buildLibraryMap($symbol_map);
   }

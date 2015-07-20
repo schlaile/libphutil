@@ -37,7 +37,9 @@ function phutil_console_prompt($prompt, $history = '') {
     throw $ex;
   }
 
-  $use_history = true;
+  // `escapeshellarg` makes double quotes in the command below disappear on
+  // Windows, which breaks prompts when using history. See T6348
+  $use_history = !phutil_is_windows();
   if ($history == '') {
     $use_history = false;
   } else {
@@ -45,8 +47,6 @@ function phutil_console_prompt($prompt, $history = '') {
     list($err) = exec_manual('bash -c %s', 'true');
     if ($err) {
       $use_history = false;
-    } else if (phutil_is_windows()) {
-      $history = str_replace('\\', '/', $history);
     }
   }
 
@@ -183,31 +183,35 @@ function phutil_console_require_tty() {
  * @return int|null Terminal width in characters, or null on failure.
  */
 function phutil_console_get_terminal_width() {
-  if (phutil_is_windows()) {
-    // TODO: Figure out how to get this working in Windows.
-    return null;
+  static $width;
+
+  if ($width === null) {
+    if (phutil_is_windows()) {
+      // TODO: Figure out how to get this working in Windows.
+      return null;
+    }
+
+    $tmp = new TempFile();
+
+    // NOTE: We can't just execute this because it won't be connected to a TTY
+    // if we do.
+    $err = phutil_passthru('tput cols > %s', $tmp);
+
+    if ($err) {
+      return null;
+    }
+
+    try {
+      $cols = Filesystem::readFile($tmp);
+    } catch (FilesystemException $ex) {
+      return null;
+    }
+
+    $width = (int)$cols;
+    if (!$width) {
+      $width = null;
+    }
   }
 
-  $tmp = new TempFile();
-
-  // NOTE: We can't just execute this because it won't be connected to a TTY
-  // if we do.
-  $err = phutil_passthru('tput cols > %s', $tmp);
-
-  if ($err) {
-    return null;
-  }
-
-  try {
-    $cols = Filesystem::readFile($tmp);
-  } catch (FilesystemException $ex) {
-    return null;
-  }
-
-  $cols = (int)$cols;
-  if (!$cols) {
-    return null;
-  }
-
-  return $cols;
+  return $width;
 }

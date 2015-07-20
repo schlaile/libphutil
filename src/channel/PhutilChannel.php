@@ -27,7 +27,7 @@
  * @task  update  Responding to Activity
  * @task  impl    Channel Implementation
  */
-abstract class PhutilChannel {
+abstract class PhutilChannel extends Phobject {
 
   private $ibuf = '';
   private $obuf;
@@ -72,7 +72,10 @@ abstract class PhutilChannel {
    */
   public function write($bytes) {
     if (!is_scalar($bytes)) {
-      throw new Exception('PhutilChannel->write() may only write strings!');
+      throw new Exception(
+        pht(
+          '%s may only write strings!',
+          __METHOD__.'()'));
     }
 
     $this->obuf->append($bytes);
@@ -127,8 +130,8 @@ abstract class PhutilChannel {
     array $writes,
     array $options = array()) {
 
-    assert_instances_of($reads, 'PhutilChannel');
-    assert_instances_of($writes, 'PhutilChannel');
+    assert_instances_of($reads, __CLASS__);
+    assert_instances_of($writes, __CLASS__);
 
     $read   = idx($options, 'read',     array());
     $write  = idx($options, 'write',    array());
@@ -414,7 +417,7 @@ abstract class PhutilChannel {
     while (!$this->isWriteBufferEmpty()) {
       self::waitForAny(array($this));
       if (!$this->update()) {
-        throw new Exception('Channel closed while flushing output!');
+        throw new Exception(pht('Channel closed while flushing output!'));
       }
     }
     return $this;

@@ -4,10 +4,8 @@
  * A 'future' or 'promise' is an object which represents the result of some
  * pending computation. For a more complete overview of futures, see
  * @{article:Using Futures}.
- *
- * @stable
  */
-abstract class Future {
+abstract class Future extends Phobject {
 
   protected static $handlerInstalled = null;
 
@@ -127,8 +125,8 @@ abstract class Future {
       //  anything because the SIGCHLD will interrupt the stream_select(), as
       //  long as we have a handler registered.
       if (function_exists('pcntl_signal')) {
-        if (!pcntl_signal(SIGCHLD, array('Future', 'handleSIGCHLD'))) {
-          throw new Exception('Failed to install signal handler!');
+        if (!pcntl_signal(SIGCHLD, array(__CLASS__, 'handleSIGCHLD'))) {
+          throw new Exception(pht('Failed to install signal handler!'));
         }
       }
       self::$handlerInstalled = true;

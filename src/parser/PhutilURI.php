@@ -3,7 +3,7 @@
 /**
  * Basic URI parser object.
  */
-final class PhutilURI {
+final class PhutilURI extends Phobject {
 
   private $protocol;
   private $user;
@@ -15,7 +15,20 @@ final class PhutilURI {
   private $fragment;
 
   public function __construct($uri) {
-    $parts = parse_url($uri);
+    $uri = (string)$uri;
+
+    $matches = null;
+    if (preg_match('(^([^/:]*://[^/]*)(\\?.*)\z)', $uri, $matches)) {
+      // If the URI is something like `idea://open?file=/path/to/file`, the
+      // `parse_url()` function will parse `open?file=` as the host. This is
+      // not the expected result. Break the URI into two pieces, stick a slash
+      // in between them, parse that, then remove the path. See T6106.
+
+      $parts = parse_url($matches[1].'/'.$matches[2]);
+      unset($parts['path']);
+    } else {
+      $parts = parse_url($uri);
+    }
 
     // The parse_url() call will accept URIs with leading whitespace, but many
     // other tools (like git) will not. See T4913 for a specific example. If
@@ -25,6 +38,7 @@ final class PhutilURI {
         $parts = false;
       }
     }
+
 
     // NOTE: `parse_url()` is very liberal about host names; fail the parse if
     // the host looks like garbage.
@@ -131,6 +145,19 @@ final class PhutilURI {
   }
   public function getPort() {
     return $this->port;
+  }
+
+  public function getPortWithProtocolDefault() {
+    static $default_ports = array(
+      'http'  => '80',
+      'https' => '443',
+      'ssh'   => '22',
+    );
+
+    return nonempty(
+      $this->getPort(),
+      idx($default_ports, $this->getProtocol()),
+      '');
   }
 
   public function setPath($path) {

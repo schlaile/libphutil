@@ -16,7 +16,7 @@ final class LinesOfALargeExecFutureTestCase extends PhutilTestCase {
   }
 
   public function testExecLargeFile() {
-    $line = 'The quick brown fox jumps over the lazy dog.';
+    $line = pht('The quick brown fox jumps over the lazy dog.');
     $n    = 100;
 
     $this->writeAndRead(
@@ -54,7 +54,9 @@ final class LinesOfALargeExecFutureTestCase extends PhutilTestCase {
     $this->assertEqual(
       $read,
       $lines,
-      'Write: '.phutil_utf8_shorten($write, 32));
+      pht('Write: %s', id(new PhutilUTF8StringTruncator())
+        ->setMaximumGlyphs(32)
+        ->truncateString($write)));
   }
 
 }

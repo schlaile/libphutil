@@ -1,17 +1,20 @@
 <?php
 
-abstract class AASTNode {
+abstract class AASTNode extends Phobject {
 
   protected $id;
   protected $l;
   protected $r;
   protected $typeID;
+  protected $typeName;
   protected $tree;
 
   // These are public only as a microoptimization to make tree construction
   // faster; do not access them directly.
   public $children = array();
   public $parentNode;
+
+  private $selectCache;
 
   abstract public function isStaticScalar();
   abstract public function getDocblockToken();
@@ -34,19 +37,23 @@ abstract class AASTNode {
     $this->tree = $tree;
   }
 
-  public function getParentNode() {
+  final public function getParentNode() {
     return $this->parentNode;
   }
 
-  public function getID() {
+  final public function getID() {
     return $this->id;
   }
 
-  public function getTypeID() {
+  final public function getTypeID() {
     return $this->typeID;
   }
 
-  public function getTypeName() {
+  final public function getTree() {
+    return $this->tree;
+  }
+
+  final public function getTypeName() {
     if (empty($this->typeName)) {
       $this->typeName =
         $this->tree->getNodeTypeNameFromTypeID($this->getTypeID());
@@ -54,16 +61,31 @@ abstract class AASTNode {
     return $this->typeName;
   }
 
-  public function getChildren() {
+  final public function getChildren() {
     return $this->children;
+  }
+
+  public function getChildrenOfType($type) {
+    $nodes = array();
+
+    foreach ($this->children as $child) {
+      if ($child->getTypeName() == $type) {
+        $nodes[] = $child;
+      }
+    }
+
+    return $nodes;
   }
 
   public function getChildOfType($index, $type) {
     $child = $this->getChildByIndex($index);
     if ($child->getTypeName() != $type) {
       throw new Exception(
-        "Child in position '{$index}' is not of type '{$type}': ".
-        $this->getDescription());
+        pht(
+          "Child in position '%d' is not of type '%s': %s",
+          $index,
+          $type,
+          $this->getDescription()));
     }
 
     return $child;
@@ -80,7 +102,7 @@ abstract class AASTNode {
       ++$idx;
     }
 
-    throw new Exception("No child with index '{$index}'.");
+    throw new Exception(pht("No child with index '%d'.", $index));
   }
 
   /**
@@ -130,22 +152,32 @@ abstract class AASTNode {
     return $this->tokenCache;
   }
 
+  public function selectTokensOfType($type_name) {
+    return $this->selectTokensOfTypes(array($type_name));
+  }
 
   /**
-   * Select all tokens of a given type.
+   * Select all tokens of any given types.
    */
-  public function selectTokensOfType($type_name) {
-    if (isset($this->tokenCache)) {
-      return idx($this->tokenCache, $type_name, array());
-    } else {
-      $result = array();
-      foreach ($this->getTokens() as $id => $token) {
-        if ($token->getTypeName() == $type_name) {
-          $result[$id] = $token;
+  public function selectTokensOfTypes(array $type_names) {
+    $tokens = array();
+
+    foreach ($type_names as $type_name) {
+      if (isset($this->tokenCache)) {
+        $cached_tokens = idx($this->tokenCache, $type_name, array());
+        foreach ($cached_tokens as $id => $cached_token) {
+          $tokens[$id] = $cached_token;
+        }
+      } else {
+        foreach ($this->getTokens() as $id => $token) {
+          if ($token->getTypeName() == $type_name) {
+            $tokens[$id] = $token;
+          }
         }
       }
-      return $result;
     }
+
+    return $tokens;
   }
 
   public function selectDescendantsOfType($type_name) {
@@ -210,6 +242,23 @@ abstract class AASTNode {
     return implode('', mpull($tokens, 'getValue'));
   }
 
+  public function getIndentation() {
+    $tokens = $this->getTokens();
+    $left = head($tokens);
+
+    while ($left &&
+           (!$left->isAnyWhitespace() ||
+            strpos($left->getValue(), "\n") === false)) {
+      $left = $left->getPrevToken();
+    }
+
+    if (!$left) {
+      return null;
+    }
+
+    return preg_replace("/^.*\n/s", '', $left->getValue());
+  }
+
   public function getDescription() {
     $concrete = $this->getConcreteString();
     if (strlen($concrete) > 75) {
@@ -218,20 +267,29 @@ abstract class AASTNode {
 
     $concrete = addcslashes($concrete, "\\\n\"");
 
-    return 'a node of type '.$this->getTypeName().': "'.$concrete.'"';
+    return pht('a node of type %s: "%s"', $this->getTypeName(), $concrete);
   }
 
-  protected function getTypeIDFromTypeName($type_name) {
+  final protected function getTypeIDFromTypeName($type_name) {
     return $this->tree->getNodeTypeIDFromTypeName($type_name);
   }
 
-  public function getOffset() {
+  final public function getOffset() {
     $stream = $this->tree->getRawTokenStream();
     if (empty($stream[$this->l])) {
       return null;
     }
     return $stream[$this->l]->getOffset();
   }
+
+  final public function getLength() {
+    $stream = $this->tree->getRawTokenStream();
+    if (empty($stream[$this->r])) {
+      return null;
+    }
+    return $stream[$this->r]->getOffset() - $this->getOffset();
+  }
+
 
   public function getSurroundingNonsemanticTokens() {
     $before = array();
@@ -250,8 +308,14 @@ abstract class AASTNode {
     return array($before, $after);
   }
 
-  public function getLineNumber() {
+  final public function getLineNumber() {
     return idx($this->tree->getOffsetToLineNumberMap(), $this->getOffset());
+  }
+
+  final public function getEndLineNumber() {
+    return idx(
+      $this->tree->getOffsetToLineNumberMap(),
+      $this->getOffset() + $this->getLength());
   }
 
   public function dispose() {

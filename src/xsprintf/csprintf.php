@@ -57,6 +57,12 @@ function xsprintf_command($userdata, &$pattern, &$pos, &$value, &$length) {
 
   $is_unmasked = !empty($userdata['unmasked']);
 
+  if (empty($userdata['mode'])) {
+    $mode = PhutilCommandString::MODE_DEFAULT;
+  } else {
+    $mode = $userdata['mode'];
+  }
+
   if ($value instanceof PhutilCommandString) {
     if ($is_unmasked) {
       $value = $value->getUnmaskedString();
@@ -75,7 +81,7 @@ function xsprintf_command($userdata, &$pattern, &$pos, &$value, &$length) {
       // Check that the value is a non-empty array.
       if (!is_array($value)) {
         throw new InvalidArgumentException(
-          "Expected an array for %L{$next} conversion.");
+          pht('Expected an array for %%L%s conversion.', $next));
       }
 
       switch ($next) {
@@ -102,25 +108,25 @@ function xsprintf_command($userdata, &$pattern, &$pos, &$value, &$length) {
 
     case 'R':
       if (!preg_match('(^[a-zA-Z0-9:/@._-]+$)', $value)) {
-        $value = escapeshellarg($value);
+        $value = PhutilCommandString::escapeArgument($value, $mode);
       }
       $type = 's';
       break;
     case 's':
-      $value = escapeshellarg($value);
+      $value = PhutilCommandString::escapeArgument($value, $mode);
       $type = 's';
       break;
     case 'P':
       if (!($value instanceof PhutilOpaqueEnvelope)) {
         throw new InvalidArgumentException(
-          'Expected PhutilOpaqueEnvelope for %P conversion.');
+          pht('Expected %s for %%P conversion.', 'PhutilOpaqueEnvelope'));
       }
       if ($is_unmasked) {
         $value = $value->openEnvelope();
       } else {
         $value = 'xxxxx';
       }
-      $value = escapeshellarg($value);
+      $value = PhutilCommandString::escapeArgument($value, $mode);
       $type = 's';
       break;
     case 'C':

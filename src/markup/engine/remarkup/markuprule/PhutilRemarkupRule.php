@@ -1,9 +1,6 @@
 <?php
 
-/**
- * @stable
- */
-abstract class PhutilRemarkupRule {
+abstract class PhutilRemarkupRule extends Phobject {
 
   private $engine;
   private $replaceCallback;
@@ -39,7 +36,7 @@ abstract class PhutilRemarkupRule {
       phutil_escape_html($text)));
   }
 
-  private function replaceHTMLCallback($match) {
+  private function replaceHTMLCallback(array $match) {
     return phutil_escape_html(call_user_func(
       $this->replaceCallback,
       array_map('phutil_safe_html', $match)));

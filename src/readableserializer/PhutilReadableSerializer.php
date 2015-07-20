@@ -7,7 +7,7 @@
  * @task print Printing PHP Values
  * @task internal Internals
  */
-final class PhutilReadableSerializer {
+final class PhutilReadableSerializer extends Phobject {
 
 
 /* -(  Printing PHP Values  )------------------------------------------------ */
@@ -62,7 +62,7 @@ final class PhutilReadableSerializer {
       }
       return $str;
     } else {
-      // NOTE: Avoid phutil_utf8_shorten() here since the data may not be
+      // NOTE: Avoid PhutilUTF8StringTruncator here since the data may not be
       // UTF8 anyway, it's slow for large inputs, and it might not be loaded
       // yet.
       $limit = 1024;

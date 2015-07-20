@@ -66,7 +66,7 @@
  * @task help     Command Help
  * @task internal Internals
  */
-final class PhutilArgumentParser {
+final class PhutilArgumentParser extends Phobject {
 
   private $bin;
   private $argv;
@@ -124,7 +124,9 @@ final class PhutilArgumentParser {
     for ($ii = 0; $ii < $len; $ii++) {
       $arg = $argv[$ii];
       $map = null;
-      if ($arg == '--') {
+      if (!is_string($arg)) {
+        // Non-string argument; pass it through as-is.
+      } else if ($arg == '--') {
         // This indicates "end of flags".
         break;
       } else if ($arg == '-') {
@@ -155,7 +157,9 @@ final class PhutilArgumentParser {
           if ($val !== null) {
             if ($param_name === null) {
               throw new PhutilArgumentUsageException(
-                "Argument '{$pre}{$arg}' does not take a parameter.");
+                pht(
+                  "Argument '%s' does not take a parameter.",
+                  "{$pre}{$arg}"));
             }
           } else {
             if ($param_name !== null) {
@@ -165,7 +169,9 @@ final class PhutilArgumentParser {
                 $ii++;
               } else {
                 throw new PhutilArgumentUsageException(
-                  "Argument '{$pre}{$arg}' requires a parameter.");
+                  pht(
+                    "Argument '%s' requires a parameter.",
+                    "{$pre}{$arg}"));
               }
             } else {
               $val = true;
@@ -175,7 +181,9 @@ final class PhutilArgumentParser {
           if (!$spec->getRepeatable()) {
             if (array_key_exists($spec->getName(), $this->results)) {
               throw new PhutilArgumentUsageException(
-                "Argument '{$pre}{$arg}' was provided twice.");
+                pht(
+                  "Argument '%s' was provided twice.",
+                  "{$pre}{$arg}"));
             }
           }
 
@@ -190,8 +198,11 @@ final class PhutilArgumentParser {
               }
 
               throw new PhutilArgumentUsageException(
-                "Argument '{$pre}{$arg}' conflicts with argument ".
-                "'--{$conflict}'{$reason}");
+                pht(
+                  "Argument '%s' conflicts with argument '%s'%s",
+                  "{$pre}{$arg}",
+                  "--{$conflict}",
+                  $reason));
             }
           }
 
@@ -244,7 +255,7 @@ final class PhutilArgumentParser {
     if (count($this->argv)) {
       $arg = head($this->argv);
       throw new PhutilArgumentUsageException(
-        "Unrecognized argument '{$arg}'.");
+        pht("Unrecognized argument '%s'.", $arg));
     }
 
     if ($this->showHelp) {
@@ -322,12 +333,12 @@ final class PhutilArgumentParser {
 
       if ($name === null) {
         throw new PhutilArgumentSpecificationException(
-          'Workflow has no name!');
+          pht('Workflow has no name!'));
       }
 
       if (isset($this->workflows[$name])) {
         throw new PhutilArgumentSpecificationException(
-          "Two workflows with name '{$name}!");
+          pht("Two workflows with name '%s!", $name));
       }
 
       $this->workflows[$name] = $workflow;
@@ -339,8 +350,7 @@ final class PhutilArgumentParser {
       if (isset($this->workflows['help'])) {
         $argv = array('help');
       } else {
-        throw new PhutilArgumentUsageException(
-          'No workflow selected.');
+        throw new PhutilArgumentUsageException(pht('No workflow selected.'));
       }
     }
 
@@ -354,12 +364,14 @@ final class PhutilArgumentParser {
       }
       sort($workflow_names);
       $command_list = implode(', ', $workflow_names);
-      $ex_msg =
-        "Invalid command '{$flow}'. Valid commands are: {$command_list}.";
+      $ex_msg = pht(
+        "Invalid command '%s'. Valid commands are: %s.",
+        $flow,
+        $command_list);
       if (in_array('help', $workflow_names)) {
         $bin = basename($this->bin);
-        $ex_msg .=
-          "\nFor more details on available commands, run `{$bin} help`.";
+        $ex_msg .= "\n".pht(
+          'For more details on available commands, run `%s`.', "{$bin} help");
       }
       throw new PhutilArgumentUsageException($ex_msg);
     }
@@ -417,13 +429,14 @@ final class PhutilArgumentParser {
         array(
           array(
             'name'  => 'trace',
-            'help'  => 'Trace command execution and show service calls.',
+            'help'  => pht('Trace command execution and show service calls.'),
             'standard' => true,
           ),
           array(
             'name'  => 'no-ansi',
-            'help'  => 'Disable ANSI terminal codes, printing plain text with '.
-                       'no color or style.',
+            'help'  => pht(
+              'Disable ANSI terminal codes, printing plain text with '.
+              'no color or style.'),
             'conflicts' => array(
               'ansi' => null,
             ),
@@ -431,31 +444,33 @@ final class PhutilArgumentParser {
           ),
           array(
             'name'  => 'ansi',
-            'help'  => "Use formatting even in environments which probably ".
-                       "don't support it.",
+            'help'  => pht(
+              "Use formatting even in environments which probably ".
+              "don't support it."),
             'standard' => true,
           ),
           array(
             'name'  => 'xprofile',
             'param' => 'profile',
-            'help'  => 'Profile script execution and write results to a file.',
+            'help'  => pht(
+              'Profile script execution and write results to a file.'),
             'standard' => true,
           ),
           array(
             'name'  => 'help',
             'short' => 'h',
-            'help'  => 'Show this help.',
+            'help'  => pht('Show this help.'),
             'standard' => true,
           ),
           array(
             'name'  => 'show-standard-options',
-            'help'  => 'Show every option, including standard options '.
-                       'like this one.',
+            'help'  => pht(
+              'Show every option, including standard options like this one.'),
             'standard' => true,
           ),
           array(
             'name'  => 'recon',
-            'help'  => 'Start in remote console mode.',
+            'help'  => pht('Start in remote console mode.'),
             'standard' => true,
           ),
         ));
@@ -483,7 +498,8 @@ final class PhutilArgumentParser {
     $xprofile = $this->getArg('xprofile');
     if ($xprofile) {
       if (!function_exists('xhprof_enable')) {
-        throw new Exception("To use '--xprofile', you must install XHProf.");
+        throw new Exception(
+          pht("To use '%s', you must install XHProf.", '--xprofile'));
       }
 
       xhprof_enable(0);
@@ -512,7 +528,7 @@ final class PhutilArgumentParser {
   public function getArg($name) {
     if (empty($this->specs[$name])) {
       throw new PhutilArgumentSpecificationException(
-        "No specification exists for argument '{$name}'!");
+        pht("No specification exists for argument '%s'!", $name));
     }
 
     if (idx($this->results, $name) !== null) {
@@ -550,7 +566,7 @@ final class PhutilArgumentParser {
     $more = array();
 
     if ($this->bin) {
-      $out[] = $this->format('**NAME**');
+      $out[] = $this->format('**%s**', pht('NAME'));
       $name = $this->indent(6, '**%s**', basename($this->bin));
       if ($this->tagline) {
         $name .= $this->format(' - '.$this->tagline);
@@ -560,14 +576,14 @@ final class PhutilArgumentParser {
     }
 
     if ($this->synopsis) {
-      $out[] = $this->format('**SYNOPSIS**');
+      $out[] = $this->format('**%s**', pht('SYNOPSIS'));
       $out[] = $this->indent(6, $this->synopsis);
       $out[] = null;
     }
 
     if ($this->workflows) {
       $has_help = false;
-      $out[] = $this->format('**WORKFLOWS**');
+      $out[] = $this->format('**%s**', pht('WORKFLOWS'));
       $out[] = null;
       $flows = $this->workflows;
       ksort($flows);
@@ -580,13 +596,14 @@ final class PhutilArgumentParser {
           $show_details = false);
       }
       if ($has_help) {
-        $more[] = 'Use **help** __command__ for a detailed command reference.';
+        $more[] = pht(
+          'Use **%s** __command__ for a detailed command reference.', 'help');
       }
     }
 
     $specs = $this->renderArgumentSpecs($this->specs);
     if ($specs) {
-      $out[] = $this->format('**OPTION REFERENCE**');
+      $out[] = $this->format('**%s**', pht('OPTION REFERENCE'));
       $out[] = null;
       $out[] = $specs;
     }
@@ -595,7 +612,8 @@ final class PhutilArgumentParser {
     // a quick hint about it.
     if (!empty($this->specs['show-standard-options']) &&
         !$this->getArg('show-standard-options')) {
-      $more[] = 'Use __--show-standard-options__ to show additional options.';
+      $more[] = pht(
+        'Use __%s__ to show additional options.', '--show-standard-options');
     }
 
     $out[] = null;
@@ -622,7 +640,7 @@ final class PhutilArgumentParser {
     if (!$workflow) {
       $out[] = $this->indent(
         $indent,
-        "There is no **{$workflow_name}** workflow.");
+        pht('There is no **%s** workflow.', $workflow_name));
     } else {
       $out[] = $this->indent($indent, $workflow->getExamples());
       $out[] = $this->indent($indent, $workflow->getSynopsis());
@@ -648,7 +666,7 @@ final class PhutilArgumentParser {
   public function printUsageException(PhutilArgumentUsageException $ex) {
     fwrite(
       STDERR,
-      $this->format("**Usage Exception:** %s\n", $ex->getMessage()));
+      $this->format("**%s** %s\n", pht('Usage Exception:'), $ex->getMessage()));
   }
 
 
@@ -660,10 +678,17 @@ final class PhutilArgumentParser {
       if ($value == '--') {
         unset($argv[$key]);
         break;
-      } else if (!strncmp($value, '-', 1) && strlen($value) > 1) {
+      } else if (
+        is_string($value) &&
+        !strncmp($value, '-', 1) &&
+        strlen($value) > 1) {
+
         throw new PhutilArgumentUsageException(
-          "Argument '{$value}' is unrecognized. Use '--' to indicate the ".
-          "end of flags.");
+          pht(
+            "Argument '%s' is unrecognized. Use '%s' to indicate ".
+            "the end of flags.",
+            $value,
+            '--'));
       }
     }
     return array_values($argv);
@@ -688,15 +713,16 @@ final class PhutilArgumentParser {
 
       if (isset($this->specs[$name])) {
         throw new PhutilArgumentSpecificationException(
-          "Two argument specifications have the same name ('{$name}').");
+          pht("Two argument specifications have the same name ('%s').", $name));
       }
 
       $short = $spec->getShortAlias();
       if ($short) {
         if (isset($short_map[$short])) {
           throw new PhutilArgumentSpecificationException(
-            "Two argument specifications have the same short alias ".
-            "('{$short}').");
+            pht(
+              "Two argument specifications have the same short alias ('%s').",
+              $short));
         }
         $short_map[$short] = $spec;
       }
@@ -704,8 +730,9 @@ final class PhutilArgumentParser {
       if ($spec->getWildcard()) {
         if ($wildcard) {
           throw new PhutilArgumentSpecificationException(
-            'Two argument specifications are marked as wildcard arguments. '.
-            'You can have a maximum of one wildcard argument.');
+            pht(
+              'Two argument specifications are marked as wildcard arguments. '.
+              'You can have a maximum of one wildcard argument.'));
         } else {
           $wildcard = $spec;
         }
@@ -718,12 +745,14 @@ final class PhutilArgumentParser {
       foreach ($spec->getConflicts() as $conflict => $reason) {
         if (empty($this->specs[$conflict])) {
           throw new PhutilArgumentSpecificationException(
-            "Argument '{$name}' conflicts with unspecified argument ".
-            "'{$conflict}'.");
+            pht(
+              "Argument '%s' conflicts with unspecified argument '%s'.",
+              $name,
+              $conflict));
         }
         if ($conflict == $name) {
           throw new PhutilArgumentSpecificationException(
-            "Argument '{$name}' conflicts with itself!");
+            pht("Argument '%s' conflicts with itself!", $name));
         }
       }
     }
@@ -739,9 +768,13 @@ final class PhutilArgumentParser {
 
     $out = array();
 
+    $no_standard_options =
+      !empty($this->specs['show-standard-options']) &&
+      !$this->getArg('show-standard-options');
+
     $specs = msort($specs, 'getName');
     foreach ($specs as $spec) {
-      if ($spec->getStandard() && !$this->getArg('show-standard-options')) {
+      if ($spec->getStandard() && $no_standard_options) {
         // If this is a standard argument and the user didn't pass
         // --show-standard-options, skip it.
         continue;
@@ -785,7 +818,7 @@ final class PhutilArgumentParser {
    */
   public function shutdownProfiler() {
     $data = xhprof_disable();
-    $data = serialize($data);
+    $data = json_encode($data);
     Filesystem::writeFile($this->getArg('xprofile'), $data);
   }
 

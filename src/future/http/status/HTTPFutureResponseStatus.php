@@ -22,7 +22,6 @@ abstract class HTTPFutureResponseStatus extends Exception {
     parent::__construct($message);
   }
 
-
   final public function getStatusCode() {
     return $this->statusCode;
   }
@@ -33,6 +32,10 @@ abstract class HTTPFutureResponseStatus extends Exception {
 
   abstract public function isError();
   abstract public function isTimeout();
+
+  public function isRedirect() {
+    return false;
+  }
 
   abstract protected function getErrorCodeType($code);
   abstract protected function getErrorCodeDescription($code);

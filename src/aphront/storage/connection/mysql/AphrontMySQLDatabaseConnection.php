@@ -1,7 +1,7 @@
 <?php
 
 final class AphrontMySQLDatabaseConnection
-  extends AphrontMySQLDatabaseConnectionBase {
+  extends AphrontBaseMySQLDatabaseConnection {
 
   public function escapeUTF8String($string) {
     $this->validateUTF8String($string);
@@ -31,8 +31,9 @@ final class AphrontMySQLDatabaseConnection
       // installed, which has bitten me on three separate occasions. Make sure
       // such failures are explicit and loud.
       throw new Exception(
-        'About to call mysql_connect(), but the PHP MySQL extension is not '.
-        'available!');
+        pht(
+          'About to call %s, but the PHP MySQL extension is not available!',
+          'mysql_connect()'));
     }
 
     $user = $this->getConfiguration('user');
@@ -60,9 +61,14 @@ final class AphrontMySQLDatabaseConnection
     if (!$conn) {
       $errno = mysql_errno();
       $error = mysql_error();
-      throw new AphrontQueryConnectionException(
-        "Attempt to connect to {$user}@{$host} failed with error ".
-        "#{$errno}: {$error}.", $errno);
+      throw new AphrontConnectionQueryException(
+        pht(
+          'Attempt to connect to %s@%s failed with error #%d: %s.',
+          $user,
+          $host,
+          $errno,
+          $error),
+        $errno);
     }
 
     if ($database !== null) {
@@ -72,7 +78,10 @@ final class AphrontMySQLDatabaseConnection
       }
     }
 
-    mysql_set_charset('utf8', $conn);
+    $ok = @mysql_set_charset('utf8mb4', $conn);
+    if (!$ok) {
+      mysql_set_charset('utf8', $conn);
+    }
 
     return $conn;
   }
@@ -114,7 +123,8 @@ final class AphrontMySQLDatabaseConnection
     }
 
     if (!$processed_all) {
-      throw new Exception('There are some results left in the result set.');
+      throw new Exception(
+        pht('There are some results left in the result set.'));
     }
 
     return $results;
@@ -135,7 +145,7 @@ final class AphrontMySQLDatabaseConnection
   public function executeParallelQueries(
     array $queries,
     array $conns = array()) {
-    assert_instances_of($conns, 'AphrontMySQLDatabaseConnection');
+    assert_instances_of($conns, __CLASS__);
 
     $map = array();
     $is_write = false;

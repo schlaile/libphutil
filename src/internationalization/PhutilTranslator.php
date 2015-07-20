@@ -11,11 +11,13 @@ abstract class PhutilCustomTranslator {
 /**
  * @group internationalization
  */
-final class PhutilTranslator {
+final class PhutilTranslator extends Phobject {
 
-  static private $instance;
+  private static $instance;
 
-  private $language = 'en';
+  private $locale;
+  private $localeCode;
+  private $shouldPostProcess;
   private $translations = array();
   private $translator = false;
 
@@ -30,8 +32,10 @@ final class PhutilTranslator {
     self::$instance = $instance;
   }
 
-  public function setLanguage($language) {
-    $this->language = $language;
+  public function setLocale(PhutilLocale $locale) {
+    $this->locale = $locale;
+    $this->localeCode = $locale->getLocaleCode();
+    $this->shouldPostProcess = $locale->shouldPostProcessTranslations();
     return $this;
   }
 
@@ -70,8 +74,8 @@ final class PhutilTranslator {
    * @param array Identifier in key, translation in value.
    * @return PhutilTranslator Provides fluent interface.
    */
-  public function addTranslations(array $translations) {
-    $this->translations = array_merge($this->translations, $translations);
+  public function setTranslations(array $translations) {
+    $this->translations = $translations;
     return $this;
   }
 
@@ -125,9 +129,20 @@ final class PhutilTranslator {
     } else {
       $result = $translation;
     }
+    if ($result === false) {
+      // If vsprintf() fails (often because the translated string references
+      // too many parameters), show the bad template with a note instead of
+      // returning an empty string. This makes it easier to figure out what
+      // went wrong and fix it.
+      $result = pht('[Invalid Translation!] %s', $translation);
+    }
 
-    if ($this->language == 'en-ac') {
-      $result = strtoupper($result);
+    if ($this->shouldPostProcess) {
+      $result = $this->locale->didTranslateString(
+        $text,
+        $translation,
+        $args,
+        $result);
     }
 
     if ($is_html) {
@@ -147,18 +162,23 @@ final class PhutilTranslator {
       $variant = $variant->getNumber();
     }
 
-    switch ($this->language) {
+    // TODO: Move these into PhutilLocale if benchmarks show we aren't
+    // eating too much of a performance cost.
 
-      case 'en':
-      case 'en-ac':
+    switch ($this->localeCode) {
 
+      case 'en_US':
+      case 'en_GB':
+      case 'en_W*':
+      case 'en_R*':
+      case 'en_A*':
         list($singular, $plural) = $translations;
         if ($variant == 1) {
           return $singular;
         }
         return $plural;
 
-      case 'cs':
+      case 'cs_CZ':
         if ($variant instanceof PhutilPerson) {
           list($male, $female) = $translations;
           if ($variant->getSex() == PhutilPerson::SEX_FEMALE) {
@@ -177,7 +197,7 @@ final class PhutilTranslator {
         return $plural;
 
       default:
-        throw new Exception("Unknown language '{$this->language}'.");
+        throw new Exception(pht("Unknown language '%s'.", $this->language));
     }
   }
 

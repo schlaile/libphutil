@@ -6,7 +6,7 @@
  * @phutil-external-symbol class JsonLintJsonParser
  * @phutil-external-symbol class JsonLintParsingException
  */
-final class PhutilJSONParser {
+final class PhutilJSONParser extends Phobject {
 
   private $allowDuplicateKeys = false;
 
@@ -17,10 +17,10 @@ final class PhutilJSONParser {
 
   public function parse($json) {
     $jsonlint_root = phutil_get_library_root('phutil').'/../externals/jsonlint';
-    require_once($jsonlint_root.'/src/Seld/JsonLint/JsonParser.php');
-    require_once($jsonlint_root.'/src/Seld/JsonLint/Lexer.php');
-    require_once($jsonlint_root.'/src/Seld/JsonLint/ParsingException.php');
-    require_once($jsonlint_root.'/src/Seld/JsonLint/Undefined.php');
+    require_once $jsonlint_root.'/src/Seld/JsonLint/JsonParser.php';
+    require_once $jsonlint_root.'/src/Seld/JsonLint/Lexer.php';
+    require_once $jsonlint_root.'/src/Seld/JsonLint/ParsingException.php';
+    require_once $jsonlint_root.'/src/Seld/JsonLint/Undefined.php';
 
     $parser = new JsonLintJsonParser();
     try {
@@ -48,7 +48,7 @@ final class PhutilJSONParser {
   }
 
   private function getFlags() {
-    $flags = 0;
+    $flags = JsonLintJsonParser::PARSE_TO_ASSOC;
 
     if ($this->allowDuplicateKeys) {
       $flags |= JsonLintJsonParser::ALLOW_DUPLICATE_KEYS;
