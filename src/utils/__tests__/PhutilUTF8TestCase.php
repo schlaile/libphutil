@@ -90,7 +90,7 @@ final class PhutilUTF8TestCase extends PhutilTestCase {
       $this->assertEqual(
         $expect,
         phutil_utf8v_codepoints($str),
-        'Codepoint Vector of '.$str);
+        pht('Codepoint Vector of %s', $str));
     }
   }
 
@@ -117,7 +117,7 @@ final class PhutilUTF8TestCase extends PhutilTestCase {
       $this->assertEqual(
         $expect,
         phutil_utf8_console_strlen($str),
-        'Console Length of '.$str);
+        pht('Console Length of %s', $str));
     }
   }
 
@@ -168,7 +168,7 @@ final class PhutilUTF8TestCase extends PhutilTestCase {
         ->setMaximumGlyphs($length)
         ->setTerminator($terminal)
         ->truncateString($string);
-      $this->assertEqual($expect, $result, 'Shortening of '.$string);
+      $this->assertEqual($expect, $result, pht('Shortening of %s', $string));
     }
   }
 
@@ -207,19 +207,19 @@ final class PhutilUTF8TestCase extends PhutilTestCase {
         ->setMaximumBytes($b_len)
         ->setTerminator('!')
         ->truncateString($input);
-      $this->assertEqual($b_out, $result, 'byte-short of '.$input);
+      $this->assertEqual($b_out, $result, pht('byte-short of %s', $input));
 
       $result = id(new PhutilUTF8StringTruncator())
         ->setMaximumCodepoints($p_len)
         ->setTerminator('!')
         ->truncateString($input);
-      $this->assertEqual($p_out, $result, 'codepoint-short of '.$input);
+      $this->assertEqual($p_out, $result, pht('codepoint-short of %s', $input));
 
       $result = id(new PhutilUTF8StringTruncator())
         ->setMaximumGlyphs($g_len)
         ->setTerminator('!')
         ->truncateString($input);
-      $this->assertEqual($g_out, $result, 'glyph-short of '.$input);
+      $this->assertEqual($g_out, $result, pht('glyph-short of %s', $input));
     }
   }
 
@@ -281,7 +281,7 @@ final class PhutilUTF8TestCase extends PhutilTestCase {
       $this->assertEqual(
         $expect,
         phutil_utf8_hard_wrap_html($string, $width),
-        "Wrapping of '".$string."'");
+        pht("Wrapping of '%s'.", $string));
     }
   }
 
@@ -344,7 +344,7 @@ final class PhutilUTF8TestCase extends PhutilTestCase {
       $this->assertEqual(
         $expect,
         phutil_utf8_hard_wrap($string, $width),
-        "Wrapping of '".$string."'");
+        pht("Wrapping of '%s'", $string));
     }
   }
 
@@ -355,7 +355,7 @@ final class PhutilUTF8TestCase extends PhutilTestCase {
     } catch (Exception $ex) {
       $caught = $ex;
     }
-    $this->assertTrue((bool)$caught, 'Requires source encoding.');
+    $this->assertTrue((bool)$caught, pht('Requires source encoding.'));
 
     $caught = null;
     try {
@@ -363,13 +363,13 @@ final class PhutilUTF8TestCase extends PhutilTestCase {
     } catch (Exception $ex) {
       $caught = $ex;
     }
-    $this->assertTrue((bool)$caught, 'Requires target encoding.');
+    $this->assertTrue((bool)$caught, pht('Requires target encoding.'));
   }
 
 
   public function testUTF8Convert() {
     if (!function_exists('mb_convert_encoding')) {
-      $this->assertSkipped('Requires mbstring extension.');
+      $this->assertSkipped(pht('Requires %s extension.', 'mbstring'));
     }
 
     // "[ae]gis se[n]or [(c)] 1970 [+/-] 1 [degree]"
@@ -377,7 +377,7 @@ final class PhutilUTF8TestCase extends PhutilTestCase {
     $expect = "\xC3\xA6gis SE\xC3\x91OR \xC2\xA9 1970 \xC2\xB11\xC2\xB0";
     $output = phutil_utf8_convert($input, 'UTF-8', 'ISO-8859-1');
 
-    $this->assertEqual($expect, $output, 'Conversion from ISO-8859-1.');
+    $this->assertEqual($expect, $output, pht('Conversion from ISO-8859-1.'));
 
     $caught = null;
     try {
@@ -386,7 +386,7 @@ final class PhutilUTF8TestCase extends PhutilTestCase {
       $caught = $ex;
     }
 
-    $this->assertTrue((bool)$caught, 'Conversion with bogus encoding.');
+    $this->assertTrue((bool)$caught, pht('Conversion with bogus encoding.'));
   }
 
 
@@ -516,33 +516,93 @@ final class PhutilUTF8TestCase extends PhutilTestCase {
 
   public function testUTF8BMP() {
     $tests = array(
-      ''  => array(true, true, 'empty string'),
-      'a' => array(true, true, 'a'),
-      "a\xCD\xA0\xCD\xA0" => array(true, true, 'a with combining'),
-      "\xE2\x98\x83" => array(true, true, 'snowman'),
+      ''  => array(
+        true,
+        true,
+        pht('empty string'),
+      ),
+      'a' => array(
+        true,
+        true,
+        'a',
+      ),
+      "a\xCD\xA0\xCD\xA0" => array(
+        true,
+        true,
+        pht('%s with combining', 'a'),
+      ),
+      "\xE2\x98\x83" => array(
+        true,
+        true,
+        pht('snowman'),
+      ),
 
       // This is the last character in BMP, U+FFFF.
-      "\xEF\xBF\xBF" => array(true, true, 'U+FFFF'),
+      "\xEF\xBF\xBF" => array(
+        true,
+        true,
+        'U+FFFF',
+      ),
 
       // This isn't valid.
-      "\xEF\xBF\xC0" => array(false, false, 'Invalid, byte range.'),
+      "\xEF\xBF\xC0" => array(
+        false,
+        false,
+        pht('Invalid, byte range.'),
+      ),
 
       // This is an invalid nonminimal representation.
-      "\xF0\x81\x80\x80" => array(false, false, 'Nonminimal 4-byte characer.'),
+      "\xF0\x81\x80\x80" => array(
+        false,
+        false,
+        pht('Nonminimal 4-byte character.'),
+      ),
 
       // This is the first character above BMP, U+10000.
-      "\xF0\x90\x80\x80" => array(true, false, 'U+10000'),
-      "\xF0\x9D\x84\x9E" => array(true, false, 'gclef'),
+      "\xF0\x90\x80\x80" => array(
+        true,
+        false,
+        'U+10000',
+      ),
+      "\xF0\x9D\x84\x9E" => array(
+        true,
+        false,
+        'gclef',
+      ),
 
-      "musical \xF0\x9D\x84\x9E g-clef" => array(true, false, 'gclef text'),
-      "\xF0\x9D\x84" => array(false, false, 'Invalid, truncated.'),
+      "musical \xF0\x9D\x84\x9E g-clef" => array(
+        true,
+        false,
+        pht('gclef text'),
+      ),
+      "\xF0\x9D\x84" => array(
+        false,
+        false,
+        pht('Invalid, truncated.'),
+      ),
 
-      "\xE0\x80\x80" => array(false, false, 'Nonminimal 3-byte character.'),
+      "\xE0\x80\x80" => array(
+        false,
+        false,
+        pht('Nonminimal 3-byte character.'),
+      ),
 
       // Partial BMP characters.
-      "\xCD" => array(false, false, 'Partial 2-byte character.'),
-      "\xE0\xA0" => array(false, false, 'Partial BMP 0xE0 character.'),
-      "\xE2\x98" => array(false, false, 'Partial BMP cahracter.'),
+      "\xCD" => array(
+        false,
+        false,
+        pht('Partial 2-byte character.'),
+      ),
+      "\xE0\xA0" => array(
+        false,
+        false,
+        pht('Partial BMP 0xE0 character.'),
+      ),
+      "\xE2\x98" => array(
+        false,
+        false,
+        pht('Partial BMP cahracter.'),
+      ),
     );
 
     foreach ($tests as $input => $test) {

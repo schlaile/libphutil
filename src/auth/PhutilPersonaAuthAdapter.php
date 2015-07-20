@@ -44,19 +44,23 @@ final class PhutilPersonaAuthAdapter extends PhutilAuthAdapter {
         ->addHeader('Content-Type', 'application/json')
         ->resolvex();
 
-      $response = json_decode($body, true);
-      if (!is_array($response)) {
-        throw new Exception("Unexpected Persona response: {$body}");
+      $response = null;
+      try {
+        $response = phutil_json_decode($body);
+      } catch (PhutilJSONParserException $ex) {
+        throw new PhutilProxyException(
+          pht('Unexpected Persona response.'),
+          $ex);
       }
 
       $audience = idx($response, 'audience');
       if ($audience != $this->audience) {
-        throw new Exception("Mismatched Persona audience: {$audience}");
+        throw new Exception(pht('Mismatched Persona audience: %s', $audience));
       }
 
       if (idx($response, 'status') !== 'okay') {
-        $reason = idx($response, 'reason', 'Unknown');
-        throw new Exception("Persona login failed: {$reason}");
+        $reason = idx($response, 'reason', pht('Unknown'));
+        throw new Exception(pht('Persona login failed: %s', $reason));
       }
 
       $this->accountData = $response;

@@ -178,7 +178,7 @@ final class PhutilUtilsTestCase extends PhutilTestCase {
 
       $this->assertTrue(
         ($caught instanceof InvalidArgumentException),
-        "array_mergev() invalid on {$key}");
+        pht('%s invalid on %s', 'array_mergev()', $key));
     }
   }
 
@@ -213,7 +213,7 @@ final class PhutilUtilsTestCase extends PhutilTestCase {
     $inputs = array(
       'empty' => array(),
       'stdClass' => array($object, $object),
-      'PhutilUtilsTestCase' => array($object, $this),
+      __CLASS__ => array($object, $this),
       'array' => array(array(), array()),
       'integer' => array($object, 1),
     );
@@ -371,7 +371,7 @@ final class PhutilUtilsTestCase extends PhutilTestCase {
       $this->assertEqual(
         $expect,
         phutil_split_lines($input, $retain_endings = true),
-        "(Retained) ".addcslashes($input, "\r\n\\"));
+        pht('(Retained) %s', addcslashes($input, "\r\n\\")));
     }
 
     $discard_cases = array(
@@ -390,7 +390,7 @@ final class PhutilUtilsTestCase extends PhutilTestCase {
       $this->assertEqual(
         $expect,
         phutil_split_lines($input, $retain_endings = false),
-        "(Discarded) ".addcslashes($input, "\r\n\\"));
+        pht('(Discarded) %s', addcslashes($input, "\r\n\\")));
     }
   }
 
@@ -535,6 +535,64 @@ final class PhutilUtilsTestCase extends PhutilTestCase {
     }
   }
 
+  public function testPhutilINIDecode() {
+    // Skip the test if we are using an older version of PHP that doesn't
+    // have the `parse_ini_string` function.
+    try {
+      phutil_ini_decode('');
+    } catch (PhutilMethodNotImplementedException $ex) {
+      $this->assertSkipped($ex->getMessage());
+    }
+
+    $valid_cases = array(
+      '' => array(),
+      'foo=' => array('foo' => ''),
+      'foo=bar' => array('foo' => 'bar'),
+      'foo = bar' => array('foo' => 'bar'),
+      "foo = bar\n" => array('foo' => 'bar'),
+      "foo\nbar = baz" => array('bar' => 'baz'),
+
+      "[foo]\nbar = baz" => array('foo' => array('bar' => 'baz')),
+      "[foo]\n[bar]\nbaz = foo" => array(
+        'foo' => array(),
+        'bar' => array('baz' => 'foo'),
+      ),
+      "[foo]\nbar = baz\n\n[bar]\nbaz = foo" => array(
+        'foo' => array('bar' => 'baz'),
+        'bar' => array('baz' => 'foo'),
+      ),
+
+      "; Comment\n[foo]\nbar = baz" => array('foo' => array('bar' => 'baz')),
+      "# Comment\n[foo]\nbar = baz" => array('foo' => array('bar' => 'baz')),
+
+      "foo = true\n[bar]\nbaz = false"
+        => array('foo' => true, 'bar' => array('baz' => false)),
+      "foo = 1\nbar = 1.234" => array('foo' => 1, 'bar' => 1.234),
+      'x = {"foo": "bar"}' => array('x' => '{"foo": "bar"}'),
+    );
+
+    foreach ($valid_cases as $input => $expect) {
+      $result = phutil_ini_decode($input);
+      $this->assertEqual($expect, $result, 'phutil_ini_decode('.$input.')');
+    }
+
+    $invalid_cases = array(
+      '[' =>
+        'syntax error, unexpected $end, expecting \']\' in Unknown on line 1',
+    );
+
+    foreach ($invalid_cases as $input => $expect) {
+      $caught = null;
+      try {
+        phutil_ini_decode($input);
+      } catch (Exception $ex) {
+        $caught = $ex;
+      }
+      $this->assertTrue($caught instanceof PhutilINIParserException);
+      $this->assertEqual($expect, $caught->getMessage());
+    }
+  }
+
   public function testCensorCredentials() {
     $cases = array(
       '' => '',
@@ -614,6 +672,124 @@ final class PhutilUtilsTestCase extends PhutilTestCase {
     $this->assertEqual(
       "PhutilTestPhobject::__set_state(array(\n))",
       phutil_var_export(new PhutilTestPhobject()));
+  }
+
+  public function testFnmatch() {
+    $cases = array(
+      '' => array(
+        array(''),
+        array('.', '/'),
+      ),
+      '*' => array(
+        array('file'),
+        array('dir/', '/dir'),
+      ),
+      '**' => array(
+        array('file', 'dir/', '/dir', 'dir/subdir/file'),
+        array(),
+      ),
+      '**/file' => array(
+        array('file', 'dir/file', 'dir/subdir/file', 'dir/subdir/subdir/file'),
+        array('file/', 'file/dir'),
+      ),
+      'file.*' => array(
+        array('file.php', 'file.a', 'file.'),
+        array('files.php', 'file.php/blah'),
+      ),
+      'fo?' => array(
+        array('foo', 'fot'),
+        array('fooo', 'ffoo', 'fo/', 'foo/'),
+      ),
+      'fo{o,t}' => array(
+        array('foo', 'fot'),
+        array('fob', 'fo/', 'foo/'),
+      ),
+      'fo{o,\\,}' => array(
+        array('foo', 'fo,'),
+        array('foo/', 'fo,/'),
+      ),
+      'fo{o,\\\\}' => array(
+        array('foo', 'fo\\'),
+        array('foo/', 'fo\\/'),
+      ),
+      '/foo' => array(
+        array('/foo'),
+        array('foo', '/foo/'),
+      ),
+
+      // Tests for various `fnmatch` flags.
+      '*.txt' => array(
+        array(
+          'file.txt',
+
+          // FNM_PERIOD
+          '.secret-file.txt',
+        ),
+        array(
+          // FNM_PATHNAME
+          'dir/file.txt',
+
+          // FNM_CASEFOLD
+          'file.TXT',
+        ),
+        '\\*.txt' => array(
+          array(
+            // FNM_NOESCAPE
+            '*.txt',
+          ),
+          array(
+            'file.txt',
+          ),
+        ),
+      ),
+    );
+
+    $invalid = array(
+      '{',
+      'asdf\\',
+    );
+
+    foreach ($cases as $input => $expect) {
+      list($matches, $no_matches) = $expect;
+
+      foreach ($matches as $match) {
+        $this->assertTrue(
+          phutil_fnmatch($input, $match),
+          pht('Expecting "%s" to match "%s".', $input, $match));
+      }
+
+      foreach ($no_matches as $no_match) {
+        $this->assertFalse(
+          phutil_fnmatch($input, $no_match),
+          pht('Expecting "%s" not to match "%s".', $input, $no_match));
+      }
+    }
+
+    foreach ($invalid as $input) {
+      $caught = null;
+      try {
+        phutil_fnmatch($input, '');
+      } catch (Exception $ex) {
+        $caught = $ex;
+      }
+
+      $this->assertTrue($caught instanceof InvalidArgumentException);
+    }
+  }
+
+  public function testJSONEncode() {
+    $in = array(
+      'example' => "Not Valid UTF8: \x80",
+    );
+
+    $caught = null;
+    try {
+      $value = phutil_json_encode($in);
+    } catch (Exception $ex) {
+      $caught = $ex;
+    }
+
+    $this->assertTrue(($caught instanceof Exception));
   }
 
 }

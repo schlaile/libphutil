@@ -1,9 +1,10 @@
 <?php
 
-abstract class AASTToken {
+abstract class AASTToken extends Phobject {
 
   protected $id;
   protected $typeID;
+  protected $typeName;
   protected $value;
   protected $offset;
   protected $tree;
@@ -11,16 +12,16 @@ abstract class AASTToken {
   public function __construct($id, $type, $value, $offset, AASTTree $tree) {
     $this->id = $id;
     $this->typeID = $type;
-    $this->offset = $offset;
     $this->value = $value;
+    $this->offset = $offset;
     $this->tree = $tree;
   }
 
-  public function getTokenID() {
+  final public function getTokenID() {
     return $this->id;
   }
 
-  public function getTypeID() {
+  final public function getTypeID() {
     return $this->typeID;
   }
 
@@ -31,11 +32,11 @@ abstract class AASTToken {
     return $this->typeName;
   }
 
-  public function getValue() {
+  final public function getValue() {
     return $this->value;
   }
 
-  public function getOffset() {
+  final public function getOffset() {
     return $this->offset;
   }
 

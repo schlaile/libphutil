@@ -1,6 +1,6 @@
 <?php
 
-final class PhutilPersonTest implements PhutilPerson {
+final class PhutilPersonTest extends Phobject implements PhutilPerson {
 
   private $sex = PhutilPerson::SEX_UNKNOWN;
 
@@ -14,7 +14,7 @@ final class PhutilPersonTest implements PhutilPerson {
   }
 
   public function __toString() {
-    return 'Test ('.$this->sex.')';
+    return pht('Test (%s)', $this->sex);
   }
 
 }

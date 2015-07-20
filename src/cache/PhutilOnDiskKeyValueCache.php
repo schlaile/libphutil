@@ -133,7 +133,10 @@ final class PhutilOnDiskKeyValueCache extends PhutilKeyValueCache {
    */
   private function loadCache($hold_lock) {
     if ($this->lock) {
-      throw new Exception('Trying to loadCache() with a lock!');
+      throw new Exception(
+        pht(
+          'Trying to %s with a lock!',
+          __FUNCTION__.'()'));
     }
 
     $lock = PhutilFileLock::newForPath($this->getCacheFile().'.lock');
@@ -174,8 +177,7 @@ final class PhutilOnDiskKeyValueCache extends PhutilKeyValueCache {
    */
   private function saveCache() {
     if (!$this->lock) {
-      throw new Exception(
-        'Call loadCache($hold_lock=true) before saveCache()!');
+      throw new PhutilInvalidStateException('loadCache');
     }
 
     // We're holding a lock so we're safe to do a write to a well-known file.
@@ -195,7 +197,7 @@ final class PhutilOnDiskKeyValueCache extends PhutilKeyValueCache {
    */
   private function getCacheFile() {
     if (!$this->cacheFile) {
-      throw new Exception('Call setCacheFile() before using a disk cache!');
+      throw new PhutilInvalidStateException('setCacheFile');
     }
     return $this->cacheFile;
   }

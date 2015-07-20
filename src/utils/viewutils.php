@@ -1,6 +1,6 @@
 <?php
 
-function _phutil_date_format($epoch) {
+function phutil_date_format($epoch) {
   $now = time();
   $shift = 30 * 24 * 60 * 60;
   if ($epoch < $now + $shift && $epoch > $now - $shift) {
@@ -60,7 +60,7 @@ function phutil_format_relative_time_detailed($duration, $levels = 2) {
       $remainder);
     $duration = $remainder;
     $this_level++;
-  };
+  }
 
   if ($is_negative) {
     $detailed_relative_time .= ' ago';
@@ -102,7 +102,7 @@ function phutil_parse_bytes($input) {
 
   $matches = null;
   if (!preg_match('/^(?:\d+(?:[.]\d+)?)([kmgtp]?)b?$/i', $bytes, $matches)) {
-    throw new Exception("Unable to parse byte size '{$input}'!");
+    throw new Exception(pht("Unable to parse byte size '%s'!", $input));
   }
 
   $scale = array(

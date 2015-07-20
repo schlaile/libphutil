@@ -151,8 +151,7 @@ abstract class PhutilOAuthAuthAdapter extends PhutilAuthAdapter {
   protected function loadAccessTokenData() {
     $code = $this->getCode();
     if (!$code) {
-      throw new Exception(
-        'Call setCode() before accessing adapter information.');
+      throw new PhutilInvalidStateException('setCode');
     }
 
     $params = array(
@@ -192,7 +191,7 @@ abstract class PhutilOAuthAuthAdapter extends PhutilAuthAdapter {
     }
 
     if (isset($data['error'])) {
-      throw new Exception('Access token error: '.$data['error']);
+      throw new Exception(pht('Access token error: %s', $data['error']));
     }
 
     return $data;
@@ -213,7 +212,7 @@ abstract class PhutilOAuthAuthAdapter extends PhutilAuthAdapter {
     if (empty($data['access_token']) &&
         empty($data['error'])) {
       throw new Exception(
-        "Failed to decode OAuth access token response: {$body}");
+        pht('Failed to decode OAuth access token response: %s', $body));
     }
 
     return $data;

@@ -52,11 +52,12 @@
  * @task tables       Computing Action and Goto Tables
  * @task inspect      Inspecting Generator State
  */
-final class PhutilParserGenerator {
+final class PhutilParserGenerator extends Phobject {
 
   private $terminals;
   private $rules;
   private $startRule = 'start';
+  private $states = array();
   private $sets = array();
   private $successor = array();
   private $setHashes = array();
@@ -118,28 +119,28 @@ final class PhutilParserGenerator {
 
   public function getEOFSymbol() {
     if ($this->eofSymbol === null) {
-      throw new Exception('Call processGrammar() before getEOFSymbol()!');
+      throw new PhutilInvalidStateException('processGrammar');
     }
     return $this->eofSymbol;
   }
 
   public function getInitSymbol() {
     if ($this->initSymbol === null) {
-      throw new Exception('Call processGrammar() before getInitSymbol()!');
+      throw new PhutilInvalidStateException('processGrammar');
     }
     return $this->initSymbol;
   }
 
   public function getEpsilonSymbol() {
     if ($this->epsilonSymbol === null) {
-      throw new Exception('Call processGrammar() before getEpsilonSymbol()!');
+      throw new PhutilInvalidStateException('processGrammar');
     }
     return $this->epsilonSymbol;
   }
 
   public function getEndSymbol() {
     if ($this->endSymbol === null) {
-      throw new Exception('Call processGrammar() before getEndSymbol()!');
+      throw new PhutilInvalidStateException('processGrammar');
     }
     return $this->endSymbol;
   }
@@ -208,9 +209,12 @@ final class PhutilParserGenerator {
           foreach ($variant as $symbol) {
             if (($symbol === null) && count($variant) > 1) {
               throw new PhutilInvalidRuleParserGeneratorException(
-                "Rule '{$rule_name}' contains a production '{$vkey}' which ".
-                "is nonempty but has a null in it. A rule with other symbols ".
-                "may not contain null.");
+                pht(
+                  "Rule '%s' contains a production '%s' which is ".
+                  "nonempty but has a null in it. A rule with other ".
+                  "may not contain null.",
+                  $rule_name,
+                  $vkey));
             }
           }
         }
@@ -238,10 +242,14 @@ final class PhutilParserGenerator {
           }
           $production_string = implode(' ', $production);
           throw new PhutilUnknownSymbolParserGeneratorException(
-            "Symbol '{$symbol}' in production '{$production_name}' ".
-            "('{$production_string}') of rule '{$rule}' does not name a rule ".
-            "or terminal. Did you misspell a symbol, fail to specify a ".
-            "terminal, or forget a rule?");
+            pht(
+              "Symbol '%s' in production '%s' ('%s') of rule '%s' does not ".
+              "name a rule or terminal. Did you misspell a symbol, fail to ".
+              "specify a terminal, or forget a rule?",
+              $symbol,
+              $production_name,
+              $production_string,
+              $rule));
         }
       }
     }
@@ -255,9 +263,12 @@ final class PhutilParserGenerator {
     $start_rule = $this->getStartRule();
     if (!$this->isRule($start_rule)) {
       throw new PhutilUnknownSymbolParserGeneratorException(
-        "Start rule '{$start_rule}' does not appear in the rules for the ".
-        "grammar. Use setStartRule() to choose a different start rule, or ".
-        "add a rule named '{$start_rule}'.");
+        pht(
+          "Start rule '%s' does not appear in the rules for the grammar. Use ".
+          "%s to choose a different start rule, or add a rule named '%s'.",
+          $start_rule,
+          'setStartRule()',
+          $start_rule));
     }
   }
 
@@ -319,8 +330,9 @@ final class PhutilParserGenerator {
       $missing_terminals = array_keys($missing);
       $missing_terminals = implode(', ', $missing_terminals);
       throw new PhutilUnreachableTerminalParserGeneratorException(
-        'Some terminals do not appear in any rule: '.
-        $missing_terminals);
+        pht(
+          'Some terminals do not appear in any rule: %s',
+          $missing_terminals));
     }
   }
 
@@ -339,8 +351,9 @@ final class PhutilParserGenerator {
       $missing_rules = array_keys($missing);
       $missing_rules = implode(', ', $missing_rules);
       throw new PhutilUnreachableRuleParserGeneratorException(
-        'Some rules can never be reached from any production: '.
-        $missing_rules);
+        pht(
+          'Some rules can never be reached from any production: %s',
+          $missing_rules));
     }
   }
 
@@ -376,8 +389,10 @@ final class PhutilParserGenerator {
     foreach ($this->rules as $rule => $productions) {
       if (!$this->isRuleReducible($rule, $reducible)) {
         throw new PhutilIrreducibleRuleParserGeneratorException(
-          "Rule '{$rule}' can never be reduced: it recurses indefinitely ".
-          "and reaches no production of terminals.");
+          pht(
+            "Rule '%s' can never be reduced: it recurses indefinitely ".
+            "and reaches no production of terminals.",
+            $rule));
       }
     }
   }
@@ -706,9 +721,13 @@ final class PhutilParserGenerator {
 
           if (false) {
             throw new Exception(
-              "Reduce/reduce conflict: from state '{$state}', when a ".
-              "'{$next}' is encountered, it may be reduced in multiple ".
-              "ways: {$ways}");
+              pht(
+                "Reduce/reduce conflict: from state '%s', when a ".
+                "'%s' is encountered, it may be reduced in multiple ".
+                "ways: %s",
+                $state,
+                $next,
+                $ways));
           }
         }
         $reduce[$next] = head($reductions);
@@ -723,8 +742,12 @@ final class PhutilParserGenerator {
         if (false) {
           $what = $reduce[$next][0];
           throw new Exception(
-            "Shift/reduce conflict: from state '{$state}', when a '{$next}' ".
-            "is encountered, shifting conflicts with reducing '{$what}'.");
+            pht(
+              "Shift/reduce conflict: from state '%s', when a '%s' ".
+              "is encountered, shifting conflicts with reducing '%s'.",
+              $state,
+              $next,
+              $what));
         } else {
           // Resolve the shift/reduce by shifting.
           $reduce = array();
@@ -732,11 +755,11 @@ final class PhutilParserGenerator {
       }
 
       if ($accept && isset($shift[$eof])) {
-        throw new Exception('Accept/shift conflict!');
+        throw new Exception(pht('Accept/shift conflict!'));
       }
 
       if ($accept && isset($reduce[$eof])) {
-        throw new Exception('Accept/reduce conflict!');
+        throw new Exception(pht('Accept/reduce conflict!'));
       }
 
       foreach ($reduce as $next => $item) {
@@ -745,8 +768,9 @@ final class PhutilParserGenerator {
           array(
             $item[0],
             $item[1],
-            count($this->rules[$item[0]][$item[1]]) - 1),
-          );
+            count($this->rules[$item[0]][$item[1]]) - 1,
+          ),
+        );
       }
 
       foreach ($shift as $next => $item) {
@@ -768,7 +792,7 @@ final class PhutilParserGenerator {
   public function generateParserFunction($name) {
     $out = array();
     $out[] = 'function '.$name.'(array $tokens, $callback) {';
-    $out[] = '  return PhutilParserGenerator::parseTokensWithTables(';
+    $out[] = '  return '.__CLASS__.'::parseTokensWithTables(';
     $out[] = '    '.$this->formatAndIndent($this->actionTable, 4).',';
     $out[] = '    '.$this->formatAndIndent($this->gotoTable, 4).',';
     $out[] = '    '.$this->formatAndIndent($this->getEOFSymbol(), 4).',';
@@ -818,8 +842,11 @@ final class PhutilParserGenerator {
       if (!isset($action_table[$state][$next])) {
         $expected = implode(', ', array_keys($action_table[$state]));
         throw new Exception(
-          "Unexpected '{$next}' in state {$state}! Expected: ".
-          $expected);
+          pht(
+            "Unexpected '%s' in state %s! Expected: %s",
+            $next,
+            $state,
+            $expected));
       }
 
       $action = $action_table[$state][$next];
@@ -863,7 +890,7 @@ final class PhutilParserGenerator {
    */
   public function inspectRules() {
     if (!$this->rulesValidated) {
-      throw new Exception('Call processGrammar() before inspectRules()!');
+      throw new PhutilInvalidStateException('processGrammar');
     }
     return $this->rules;
   }
@@ -874,7 +901,7 @@ final class PhutilParserGenerator {
    */
   public function inspectFirstTable() {
     if ($this->firstTable === null) {
-      throw new Exception('Call processGrammar() before inspectFirstTable()!');
+      throw new PhutilInvalidStateException('processGrammar');
     }
     return $this->firstTable;
   }

@@ -46,7 +46,7 @@ final class PhutilDefaultSyntaxHighlighterEngine
 
     $have_pygments = !empty($this->config['pygments.enabled']);
 
-    if ($language == 'php' && xhpast_is_available()) {
+    if ($language == 'php' && PhutilXHPASTBinary::isAvailable()) {
       return id(new PhutilXHPASTSyntaxHighlighter())
         ->getHighlightFuture($source);
     }
@@ -82,13 +82,17 @@ final class PhutilDefaultSyntaxHighlighterEngine
 
     if ($language == 'invisible') {
       return id(new PhutilInvisibleSyntaxHighlighter())
-             ->getHighlightFuture($source);
+        ->getHighlightFuture($source);
     }
 
-    if ($have_pygments) {
-      return id(new PhutilPygmentsSyntaxHighlighter())
-        ->setConfig('language', $language)
-        ->getHighlightFuture($source);
+    // Don't invoke Pygments for plain text, since it's expensive and has
+    // no effect.
+    if ($language !== 'text' && $language !== 'txt') {
+      if ($have_pygments) {
+        return id(new PhutilPygmentsSyntaxHighlighter())
+          ->setConfig('language', $language)
+          ->getHighlightFuture($source);
+      }
     }
 
     return id(new PhutilDefaultSyntaxHighlighter())

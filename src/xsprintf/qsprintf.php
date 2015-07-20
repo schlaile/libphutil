@@ -84,7 +84,7 @@ function xsprintf_query($userdata, &$pattern, &$pos, &$value, &$length) {
   $prefix   = '';
 
   if (!($escaper instanceof PhutilQsprintfInterface)) {
-    throw new InvalidArgumentException('Invalid database escaper.');
+    throw new InvalidArgumentException(pht('Invalid database escaper.'));
   }
 
   switch ($type) {
@@ -105,7 +105,12 @@ function xsprintf_query($userdata, &$pattern, &$pos, &$value, &$length) {
           }
           break;
         default:
-          throw new Exception('Unknown conversion, try %=d, %=s, or %=f.');
+          throw new Exception(
+            pht(
+              'Unknown conversion, try %s, %s, or %s.',
+              '%=d',
+              '%=s',
+              '%=f'));
       }
       break;
 
@@ -126,7 +131,7 @@ function xsprintf_query($userdata, &$pattern, &$pos, &$value, &$length) {
       break;
 
     case 'L': // List of..
-      _qsprintf_check_type($value, "L{$next}", $pattern);
+      qsprintf_check_type($value, "L{$next}", $pattern);
       $pattern = substr_replace($pattern, '', $pos, 1);
       $length  = strlen($pattern);
       $type = 's';
@@ -135,6 +140,9 @@ function xsprintf_query($userdata, &$pattern, &$pos, &$value, &$length) {
       switch ($next) {
         case 'd': //  ...integers.
           $value = implode(', ', array_map('intval', $value));
+          break;
+        case 'f': // ...floats.
+          $value = implode(', ', array_map('floatval', $value));
           break;
         case 's': // ...strings.
           foreach ($value as $k => $v) {
@@ -161,7 +169,7 @@ function xsprintf_query($userdata, &$pattern, &$pos, &$value, &$length) {
   }
 
   if (!$done) {
-    _qsprintf_check_type($value, $type, $pattern);
+    qsprintf_check_type($value, $type, $pattern);
     switch ($type) {
       case 's': // String
         if ($nullable && $value === null) {
@@ -237,34 +245,35 @@ function xsprintf_query($userdata, &$pattern, &$pos, &$value, &$length) {
   $pattern[$pos] = $type;
 }
 
-function _qsprintf_check_type($value, $type, $query) {
+function qsprintf_check_type($value, $type, $query) {
   switch ($type) {
     case 'Ld':
     case 'Ls':
     case 'LC':
     case 'LB':
+    case 'Lf':
       if (!is_array($value)) {
         throw new AphrontParameterQueryException(
           $query,
-          "Expected array argument for %{$type} conversion.");
+          pht('Expected array argument for %%%s conversion.', $type));
       }
       if (empty($value)) {
         throw new AphrontParameterQueryException(
           $query,
-          "Array for %{$type} conversion is empty.");
+          pht('Array for %%%s conversion is empty.', $type));
       }
 
       foreach ($value as $scalar) {
-        _qsprintf_check_scalar_type($scalar, $type, $query);
+        qsprintf_check_scalar_type($scalar, $type, $query);
       }
       break;
     default:
-      _qsprintf_check_scalar_type($value, $type, $query);
+      qsprintf_check_scalar_type($value, $type, $query);
       break;
   }
 }
 
-function _qsprintf_check_scalar_type($value, $type, $query) {
+function qsprintf_check_scalar_type($value, $type, $query) {
   switch ($type) {
     case 'Q':
     case 'LC':
@@ -273,17 +282,18 @@ function _qsprintf_check_scalar_type($value, $type, $query) {
       if (!is_string($value)) {
         throw new AphrontParameterQueryException(
           $query,
-          "Expected a string for %{$type} conversion.");
+          pht('Expected a string for %%%s conversion.', $type));
       }
       break;
 
     case 'Ld':
+    case 'Lf':
     case 'd':
     case 'f':
       if (!is_null($value) && !is_numeric($value)) {
         throw new AphrontParameterQueryException(
           $query,
-          "Expected a numeric scalar or null for %{$type} conversion.");
+          pht('Expected a numeric scalar or null for %%%s conversion.', $type));
       }
       break;
 
@@ -298,7 +308,7 @@ function _qsprintf_check_scalar_type($value, $type, $query) {
       if (!is_null($value) && !is_scalar($value)) {
         throw new AphrontParameterQueryException(
           $query,
-          "Expected a scalar or null for %{$type} conversion.");
+          pht('Expected a scalar or null for %%%s conversion.', $type));
       }
       break;
 

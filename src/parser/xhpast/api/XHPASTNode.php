@@ -3,8 +3,10 @@
 final class XHPASTNode extends AASTNode {
 
   public function isStaticScalar() {
-    return ($this->getTypeName() == 'n_STRING_SCALAR' ||
-            $this->getTypeName() == 'n_NUMERIC_SCALAR');
+    return in_array($this->getTypeName(), array(
+      'n_STRING_SCALAR',
+      'n_NUMERIC_SCALAR',
+    ));
   }
 
   public function getDocblockToken() {
@@ -55,7 +57,7 @@ final class XHPASTNode extends AASTNode {
           case 'null':
             return null;
           default:
-            throw new Exception('Unrecognized symbol name.');
+            throw new Exception(pht('Unrecognized symbol name.'));
         }
         break;
       case 'n_UNARY_PREFIX_EXPRESSION':
@@ -69,7 +71,8 @@ final class XHPASTNode extends AASTNode {
             return $operand->evalStatic();
             break;
           default:
-            throw new Exception('Unexpected operator in static expression.');
+            throw new Exception(
+              pht('Unexpected operator in static expression.'));
         }
         break;
       case 'n_ARRAY_LITERAL':
@@ -103,6 +106,14 @@ final class XHPASTNode extends AASTNode {
   }
 
   public function isConstantString() {
+    return $this->checkIsConstantString();
+  }
+
+  public function isConstantStringWithMagicConstants() {
+    return $this->checkIsConstantString(array('n_MAGIC_SCALAR'));
+  }
+
+  private function checkIsConstantString(array $additional_types = array()) {
     switch ($this->getTypeName()) {
       case 'n_HEREDOC':
       case 'n_STRING_SCALAR':
@@ -113,13 +124,17 @@ final class XHPASTNode extends AASTNode {
           if ($child->getTypeName() == 'n_OPERATOR') {
             continue;
           }
-          if (!$child->isConstantString()) {
+          if (!$child->checkIsConstantString($additional_types)) {
             return false;
           }
         }
         return true;
 
       default:
+        if (in_array($this->getTypeName(), $additional_types)) {
+          return true;
+        }
+
         return false;
     }
   }
@@ -141,7 +156,7 @@ final class XHPASTNode extends AASTNode {
         break;
 
       default:
-        throw new Exception('Unexpected type '.$this->getTypeName().'.');
+        throw new Exception(pht('Unexpected type %s.', $this->getTypeName()));
     }
 
     // We extract just the variable names and ignore properties and array keys.
@@ -225,10 +240,6 @@ final class XHPASTNode extends AASTNode {
     }
 
     return stripcslashes($out);
-  }
-
-  public function getLineNumber() {
-    return idx($this->tree->getOffsetToLineNumberMap(), $this->getOffset());
   }
 
 }

@@ -6,7 +6,7 @@
  * @task pretty Formatting JSON Objects
  * @task internal Internals
  */
-final class PhutilJSON {
+final class PhutilJSON extends Phobject {
 
 
 /* -(  Formatting JSON Objects  )-------------------------------------------- */
@@ -53,7 +53,7 @@ final class PhutilJSON {
     }
     $key_lines = array();
     foreach ($keys as $k => $key) {
-      $key_lines[] = $key_pre.str_pad($key, $max).' : '.$vals[$k];
+      $key_lines[] = $key_pre.$key.': '.$vals[$k];
     }
     $key_lines = implode(",\n", $key_lines);
 

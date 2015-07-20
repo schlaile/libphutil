@@ -45,7 +45,7 @@
  * delete = 1, replace = 1) and computing edit distances for strings of fewer
  * than 1,000 characters, you might set the alter cost to 0.001.
  */
-final class PhutilEditDistanceMatrix {
+final class PhutilEditDistanceMatrix extends Phobject {
 
   private $insertCost    = 1;
   private $deleteCost    = 1;
@@ -165,8 +165,7 @@ final class PhutilEditDistanceMatrix {
 
   private function requireSequences() {
     if ($this->x === null) {
-      throw new Exception(
-        'Call setSequences() before performing useful work!');
+      throw new PhutilInvalidStateException('setSequences');
     }
   }
 
@@ -267,7 +266,7 @@ final class PhutilEditDistanceMatrix {
       } else if ($type == 'd') {
         $xx -= 1;
       } else {
-        throw new Exception("Unknown type '{$type}' in type matrix.");
+        throw new Exception(pht("Unknown type '%s' in type matrix.", $type));
       }
 
       $str .= $chr;
@@ -292,8 +291,7 @@ final class PhutilEditDistanceMatrix {
 
   private function getTypeMatrix() {
     if (!$this->computeString) {
-      throw new Exception(
-        'Call setComputeString() before getTypeMatrix().');
+      throw new PhutilInvalidStateException('setComputeString');
     }
     if ($this->typeMatrix === null) {
       $this->computeMatrix($this->x, $this->y);
@@ -366,8 +364,11 @@ final class PhutilEditDistanceMatrix {
     $alt_cost = $this->getAlterCost();
     if ($alt_cost && !$use_types) {
       throw new Exception(
-        'If you provide an alter cost with setAlterCost(), you must enable '.
-        'type computation with setComputeStrings().');
+        pht(
+          'If you provide an alter cost with %s, you must enable '.
+          'type computation with %s.',
+          'setAlterCost()',
+          'setComputeStrings()'));
     }
 
     // Build the edit distance matrix.

@@ -39,11 +39,11 @@ final class PhutilTwitchFuture extends FutureProxy {
       $params = $this->params;
 
       if (!$this->action) {
-        throw new Exception('You must setRawTwitchQuery()!');
+        throw new Exception(pht('You must %s!', 'setRawTwitchQuery()'));
       }
 
       if (!$this->accessToken) {
-        throw new Exception('You must setAccessToken()!');
+        throw new Exception(pht('You must %s!', 'setAccessToken()'));
       }
 
       $uri = new PhutilURI('https://api.twitch.tv/');
@@ -73,14 +73,18 @@ final class PhutilTwitchFuture extends FutureProxy {
       throw $status;
     }
 
-    $data = json_decode($body, true);
-    if (!is_array($data)) {
-      throw new Exception("Expected JSON response from Twitch, got: {$body}");
+    $data = null;
+    try {
+      $data = phutil_json_decode($body);
+    } catch (PhutilJSONParserException $ex) {
+      throw new PhutilProxyException(
+        pht('Expected JSON response from Twitch.'),
+        $ex);
     }
 
     if (idx($data, 'error')) {
       $error = $data['error'];
-      throw new Exception("Received error from Twitch: {$error}");
+      throw new Exception(pht('Received error from Twitch: %s', $error));
     }
 
     return $data;

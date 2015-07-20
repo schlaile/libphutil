@@ -3,90 +3,59 @@
 /**
  * Oversees a daemon and restarts it if it fails.
  */
-final class PhutilDaemonOverseer {
+final class PhutilDaemonOverseer extends Phobject {
 
-  const EVENT_DID_LAUNCH    = 'daemon.didLaunch';
-  const EVENT_DID_LOG       = 'daemon.didLogMessage';
-  const EVENT_DID_HEARTBEAT = 'daemon.didHeartbeat';
-  const EVENT_WILL_GRACEFUL = 'daemon.willGraceful';
-  const EVENT_WILL_EXIT     = 'daemon.willExit';
-
-  const HEARTBEAT_WAIT      = 120;
-  const RESTART_WAIT        = 5;
-
-  private $captureBufferSize = 65536;
-
-  private $deadline;
-  private $deadlineTimeout  = 86400;
-  private $killDelay        = 3;
-  private $heartbeat;
-
-  private $daemon;
   private $argv;
   private $moreArgs;
-  private $childPID;
   private $inAbruptShutdown;
   private $inGracefulShutdown;
   private static $instance;
 
+  private $config;
+  private $daemons = array();
   private $traceMode;
   private $traceMemory;
   private $daemonize;
-  private $phddir;
+  private $piddir;
+  private $log;
+  private $libraries = array();
   private $verbose;
-  private $daemonID;
+  private $err = 0;
+  private $lastPidfile;
+  private $startEpoch;
+  private $autoscale = array();
 
   public function __construct(array $argv) {
     PhutilServiceProfiler::getInstance()->enableDiscardMode();
 
-    $original_argv = $argv;
     $args = new PhutilArgumentParser($argv);
-    $args->setTagline('daemon overseer');
+    $args->setTagline(pht('daemon overseer'));
     $args->setSynopsis(<<<EOHELP
 **launch_daemon.php** [__options__] __daemon__
     Launch and oversee an instance of __daemon__.
 EOHELP
       );
     $args->parseStandardArguments();
-    $args->parsePartial(
+    $args->parse(
       array(
         array(
           'name' => 'trace-memory',
-          'help' => 'Enable debug memory tracing.',
-        ),
-        array(
-          'name'  => 'log',
-          'param' => 'file',
-          'help'  => 'Send output to __file__.',
-        ),
-        array(
-          'name'  => 'daemonize',
-          'help'  => 'Run in the background.',
-        ),
-        array(
-          'name'  => 'phd',
-          'param' => 'dir',
-          'help'  => 'Write PID information to __dir__.',
+          'help' => pht('Enable debug memory tracing.'),
         ),
         array(
           'name'  => 'verbose',
-          'help'  => 'Enable verbose activity logging.',
+          'help'  => pht('Enable verbose activity logging.'),
         ),
         array(
-          'name' => 'load-phutil-library',
-          'param' => 'library',
-          'repeat' => true,
-          'help' => 'Load __library__.',
+          'name' => 'label',
+          'short' => 'l',
+          'param' => 'label',
+          'help' => pht(
+            'Optional process label. Makes "%s" nicer, no behavioral effects.',
+            'ps'),
         ),
       ));
     $argv = array();
-
-    $more = $args->getUnconsumedArgumentVector();
-
-    $this->daemon = array_shift($more);
-    if (!$this->daemon) {
-      $args->printHelpAndExit();
-    }
 
     if ($args->getArg('trace')) {
       $this->traceMode = true;
@@ -98,41 +67,70 @@ EOHELP
       $this->traceMemory = true;
       $argv[] = '--trace-memory';
     }
-
-    if ($args->getArg('load-phutil-library')) {
-      foreach ($args->getArg('load-phutil-library') as $library) {
-        $argv[] = '--load-phutil-library='.$library;
-      }
-    }
-
-    $log = $args->getArg('log');
-    if ($log) {
-      ini_set('error_log', $log);
-      $argv[] = '--log='.$log;
-    }
-
     $verbose = $args->getArg('verbose');
     if ($verbose) {
       $this->verbose = true;
       $argv[] = '--verbose';
     }
 
-    $this->daemonize  = $args->getArg('daemonize');
-    $this->phddir     = $args->getArg('phd');
-    $this->argv       = $argv;
-    $this->moreArgs   = coalesce($more, array());
+    $label = $args->getArg('label');
+    if ($label) {
+      $argv[] = '-l';
+      $argv[] = $label;
+    }
 
-    error_log("Bringing daemon '{$this->daemon}' online...");
+    $this->argv = $argv;
+
+    if (function_exists('posix_isatty') && posix_isatty(STDIN)) {
+      fprintf(STDERR, pht('Reading daemon configuration from stdin...')."\n");
+    }
+    $config = @file_get_contents('php://stdin');
+    $config = id(new PhutilJSONParser())->parse($config);
+
+    $this->libraries = idx($config, 'load');
+    $this->log = idx($config, 'log');
+    $this->daemonize = idx($config, 'daemonize');
+    $this->piddir = idx($config, 'piddir');
+
+    $this->config = $config;
 
     if (self::$instance) {
       throw new Exception(
-        'You may not instantiate more than one Overseer per process.');
+        pht('You may not instantiate more than one Overseer per process.'));
     }
 
     self::$instance = $this;
 
-    if ($this->daemonize) {
+    $this->startEpoch = time();
 
+    // Check this before we daemonize, since if it's an issue the child will
+    // exit immediately.
+    if ($this->piddir) {
+      $dir = $this->piddir;
+      try {
+        Filesystem::assertWritable($dir);
+      } catch (Exception $ex) {
+        throw new Exception(
+          pht(
+            "Specified daemon PID directory ('%s') does not exist or is ".
+            "not writable by the daemon user!",
+            $dir));
+      }
+    }
+
+    if (!idx($config, 'daemons')) {
+      throw new PhutilArgumentUsageException(
+        pht('You must specify at least one daemon to start!'));
+    }
+
+    if ($this->log) {
+      // NOTE: Now that we're committed to daemonizing, redirect the error
+      // log if we have a `--log` parameter. Do this at the last moment
+      // so as many setup issues as possible are surfaced.
+      ini_set('error_log', $this->log);
+    }
+
+    if ($this->daemonize) {
       // We need to get rid of these or the daemon will hang when we TERM it
       // waiting for something to read the buffers. TODO: Learn how unix works.
       fclose(STDOUT);
@@ -141,165 +139,221 @@ EOHELP
 
       $pid = pcntl_fork();
       if ($pid === -1) {
-        throw new Exception('Unable to fork!');
+        throw new Exception(pht('Unable to fork!'));
       } else if ($pid) {
         exit(0);
       }
     }
 
-    if ($this->phddir) {
-      $desc = array(
-        'name'            => $this->daemon,
-        'argv'            => $this->moreArgs,
-        'pid'             => getmypid(),
-        'start'           => time(),
-      );
-      Filesystem::writeFile(
-        $this->phddir.'/daemon.'.getmypid(),
-        json_encode($desc));
-    }
-
-    $this->daemonID = $this->generateDaemonID();
-    $this->dispatchEvent(
-      self::EVENT_DID_LAUNCH,
-      array(
-        'argv' => array_slice($original_argv, 1),
-        'explicitArgv' => $this->moreArgs,
-      ));
-
     declare(ticks = 1);
-    pcntl_signal(SIGUSR1, array($this, 'didReceiveKeepaliveSignal'));
     pcntl_signal(SIGUSR2, array($this, 'didReceiveNotifySignal'));
 
+    pcntl_signal(SIGHUP,  array($this, 'didReceiveReloadSignal'));
     pcntl_signal(SIGINT,  array($this, 'didReceiveGracefulSignal'));
     pcntl_signal(SIGTERM, array($this, 'didReceiveTerminalSignal'));
   }
 
+  public function addLibrary($library) {
+    $this->libraries[] = $library;
+    return $this;
+  }
+
   public function run() {
-    if ($this->shouldRunSilently()) {
-      echo "Running daemon '{$this->daemon}' silently. Use '--trace' or ".
-           "'--verbose' to produce debugging output.\n";
+    $this->daemons = array();
+
+    foreach ($this->config['daemons'] as $config) {
+      $config += array(
+        'argv' => array(),
+        'autoscale' => array(),
+      );
+
+      $daemon = new PhutilDaemonHandle(
+        $this,
+        $config['class'],
+        $this->argv,
+        array(
+          'log' => $this->log,
+          'argv' => $config['argv'],
+          'load' => $this->libraries,
+          'autoscale' => $config['autoscale'],
+        ));
+
+      $daemon->setSilent((!$this->traceMode && !$this->verbose));
+      $daemon->setTraceMemory($this->traceMemory);
+
+      $this->addDaemon($daemon, $config);
     }
-
-    $root = phutil_get_library_root('phutil');
-    $root = dirname($root);
-
-    $exec_dir = $root.'/scripts/daemon/exec/';
-
-    // NOTE: PHP implements proc_open() by running 'sh -c'. On most systems this
-    // is bash, but on Ubuntu it's dash. When you proc_open() using bash, you
-    // get one new process (the command you ran). When you proc_open() using
-    // dash, you get two new processes: the command you ran and a parent
-    // "dash -c" (or "sh -c") process. This means that the child process's PID
-    // is actually the 'dash' PID, not the command's PID. To avoid this, use
-    // 'exec' to replace the shell process with the real process; without this,
-    // the child will call posix_getppid(), be given the pid of the 'sh -c'
-    // process, and send it SIGUSR1 to keepalive which will terminate it
-    // immediately. We also won't be able to do process group management because
-    // the shell process won't properly posix_setsid() so the pgid of the child
-    // won't be meaningful.
-
-    // Format the exec command, which looks something like:
-    //
-    //   exec ./exec_daemon DaemonName --trace -- --no-discovery
-
-    $argv = array();
-    $argv[] = csprintf('exec ./exec_daemon.php %s', $this->daemon);
-    foreach ($this->argv as $k => $arg) {
-      $argv[] = csprintf('%s', $arg);
-    }
-    $argv[] = '--';
-    foreach ($this->moreArgs as $k => $arg) {
-      $argv[] = csprintf('%s', $arg);
-    }
-    $command = implode(' ', $argv);
 
     while (true) {
-      $this->logMessage('INIT', 'Starting process.');
+      $futures = array();
+      foreach ($this->getDaemonHandles() as $daemon) {
+        $daemon->update();
+        if ($daemon->isRunning()) {
+          $futures[] = $daemon->getFuture();
+        }
 
-      $future = new ExecFuture('%C', $command);
-      $future->setCWD($exec_dir);
-      $future->setStdoutSizeLimit($this->captureBufferSize);
-      $future->setStderrSizeLimit($this->captureBufferSize);
-
-      $this->deadline = time() + $this->deadlineTimeout;
-      $this->heartbeat = time() + self::HEARTBEAT_WAIT;
-
-      $future->isReady();
-      $this->childPID = $future->getPID();
-
-      do {
-        do {
-          if ($this->traceMemory) {
-            $memuse = number_format(memory_get_usage() / 1024, 1);
-            $this->logMessage('RAMS', 'Overseer Memory Usage: '.$memuse.' KB');
-          }
-
-          // We need a shortish timeout here so we can run the tick handler
-          // frequently in order to process signals.
-          $result = $future->resolve(1);
-
-          list($stdout, $stderr) = $future->read();
-          $stdout = trim($stdout);
-          $stderr = trim($stderr);
-          if (strlen($stdout)) {
-            $this->logMessage('STDO', $stdout);
-          }
-          if (strlen($stderr)) {
-            $this->logMessage('STDE', $stderr);
-          }
-          $future->discardBuffers();
-
-          if ($result !== null) {
-            list($err) = $result;
-            if ($err) {
-              $this->logMessage(
-                'FAIL',
-                'Process exited with error '.$err.'.',
-                $err);
-            } else {
-              $this->logMessage('DONE', 'Process exited successfully.');
-            }
-            break 2;
-          }
-          if ($this->heartbeat < time()) {
-            $this->heartbeat = time() + self::HEARTBEAT_WAIT;
-            $this->dispatchEvent(self::EVENT_DID_HEARTBEAT);
-          }
-        } while (time() < $this->deadline);
-
-        $this->logMessage('HANG', 'Hang detected. Restarting process.');
-        $this->annihilateProcessGroup();
-      } while (false);
-
-      if ($this->inGracefulShutdown) {
-        // If we just exited because of a graceful shutdown, break now.
-        break;
+        if ($daemon->isDone()) {
+          $this->removeDaemon($daemon);
+        }
       }
 
-      $this->logMessage('WAIT', 'Waiting to restart process.');
-      sleep(self::RESTART_WAIT);
+      $this->updatePidfile();
+      $this->updateAutoscale();
 
-      if ($this->inGracefulShutdown) {
-        // If we were awakend by a graceful shutdown, break now.
-        break;
+      if ($futures) {
+        $iter = id(new FutureIterator($futures))
+          ->setUpdateInterval(1);
+        foreach ($iter as $future) {
+          break;
+        }
+      } else {
+        if ($this->inGracefulShutdown) {
+          break;
+        }
+        sleep(1);
       }
     }
 
-    // This is a clean exit after a graceful shutdown.
-    $this->dispatchEvent(self::EVENT_WILL_EXIT);
-    exit(0);
+    exit($this->err);
+  }
+
+  private function addDaemon(PhutilDaemonHandle $daemon, array $config) {
+    $id = $daemon->getDaemonID();
+    $this->daemons[$id] = array(
+      'handle' => $daemon,
+      'config' => $config,
+    );
+
+    $autoscale_group = $this->getAutoscaleGroup($daemon);
+    if ($autoscale_group) {
+      $this->autoscale[$autoscale_group][$id] = true;
+    }
+
+    return $this;
+  }
+
+  private function removeDaemon(PhutilDaemonHandle $daemon) {
+    $id = $daemon->getDaemonID();
+
+    $autoscale_group = $this->getAutoscaleGroup($daemon);
+    if ($autoscale_group) {
+      unset($this->autoscale[$autoscale_group][$id]);
+    }
+
+    unset($this->daemons[$id]);
+
+    return $this;
+  }
+
+  private function getAutoscaleGroup(PhutilDaemonHandle $daemon) {
+    return $this->getAutoscaleProperty($daemon, 'group');
+  }
+
+  private function getAutoscaleProperty(
+    PhutilDaemonHandle $daemon,
+    $key,
+    $default = null) {
+
+    $id = $daemon->getDaemonID();
+    $autoscale = $this->daemons[$id]['config']['autoscale'];
+    return idx($autoscale, $key, $default);
+  }
+
+  public function didBeginWork(PhutilDaemonHandle $daemon) {
+    $id = $daemon->getDaemonID();
+    $busy = idx($this->daemons[$daemon->getDaemonID()], 'busy');
+    if (!$busy) {
+      $this->daemons[$id]['busy'] = time();
+    }
+  }
+
+  public function didBeginIdle(PhutilDaemonHandle $daemon) {
+    $id = $daemon->getDaemonID();
+    unset($this->daemons[$id]['busy']);
+  }
+
+  public function updateAutoscale() {
+    foreach ($this->autoscale as $group => $daemons) {
+      $daemon = $this->daemons[head_key($daemons)]['handle'];
+      $scaleup_duration = $this->getAutoscaleProperty($daemon, 'up', 2);
+      $max_pool_size = $this->getAutoscaleProperty($daemon, 'pool', 8);
+      $reserve = $this->getAutoscaleProperty($daemon, 'reserve', 0);
+
+      // Don't scale a group if it is already at the maximum pool size.
+      if (count($daemons) >= $max_pool_size) {
+        continue;
+      }
+
+      $should_scale = true;
+      foreach ($daemons as $daemon_id => $ignored) {
+        $busy = idx($this->daemons[$daemon_id], 'busy');
+        if (!$busy) {
+          // At least one daemon in the group hasn't reported that it has
+          // started work.
+          $should_scale = false;
+          break;
+        }
+
+        if ((time() - $busy) < $scaleup_duration) {
+          // At least one daemon in the group was idle recently, so we have
+          // not fullly
+          $should_scale = false;
+          break;
+        }
+      }
+
+      // If we have a configured memory reserve for this pool, it tells us that
+      // we should not scale up unless there's at least that much memory left
+      // on the system (for example, a reserve of 0.25 means that 25% of system
+      // memory must be free to autoscale).
+      if ($should_scale && $reserve) {
+        // On some systems this may be slightly more expensive than other
+        // checks, so only do it once we're prepared to scale up.
+        $memory = PhutilSystem::getSystemMemoryInformation();
+        $free_ratio = ($memory['free'] / $memory['total']);
+
+        // If we don't have enough free memory, don't scale.
+        if ($free_ratio <= $reserve) {
+          continue;
+        }
+      }
+
+      if ($should_scale) {
+        $config = $this->daemons[$daemon_id]['config'];
+
+        $config['autoscale']['clone'] = true;
+
+        $clone = new PhutilDaemonHandle(
+          $this,
+          $config['class'],
+          $this->argv,
+          array(
+            'log' => $this->log,
+            'argv' => $config['argv'],
+            'load' => $this->libraries,
+            'autoscale' => $config['autoscale'],
+          ));
+
+        $this->addDaemon($clone, $config);
+
+        // Don't scale more than one pool up per iteration. Otherwise, we could
+        // break the memory barrier if we have a lot of pools and scale them
+        // all up at once.
+        return;
+      }
+    }
   }
 
   public function didReceiveNotifySignal($signo) {
-    $pid = $this->childPID;
-    if ($pid) {
-      posix_kill($pid, $signo);
+    foreach ($this->getDaemonHandles() as $daemon) {
+      $daemon->didReceiveNotifySignal($signo);
     }
   }
 
-  public function didReceiveKeepaliveSignal($signo) {
-    $this->deadline = time() + $this->deadlineTimeout;
+  public function didReceiveReloadSignal($signo) {
+    foreach ($this->getDaemonHandles() as $daemon) {
+      $daemon->didReceiveReloadSignal($signo);
+    }
   }
 
   public function didReceiveGracefulSignal($signo) {
@@ -309,104 +363,26 @@ EOHELP
     }
     $this->inGracefulShutdown = true;
 
-    $signame = phutil_get_signal_name($signo);
-    if ($signame) {
-      $sigmsg = pht(
-        'Graceful shutdown in response to signal %d (%s).',
-        $signo,
-        $signame);
-    } else {
-      $sigmsg = pht(
-        'Graceful shutdown in response to signal %d.',
-        $signo);
+    foreach ($this->getDaemonHandles() as $daemon) {
+      $daemon->didReceiveGracefulSignal($signo);
     }
-
-    $this->logMessage('DONE', $sigmsg, $signo);
-
-    $this->gracefulProcessGroup();
   }
 
   public function didReceiveTerminalSignal($signo) {
+    $this->err = 128 + $signo;
     if ($this->inAbruptShutdown) {
-      exit(128 + $signo);
+      exit($this->err);
     }
     $this->inAbruptShutdown = true;
 
-    $signame = phutil_get_signal_name($signo);
-    if ($signame) {
-      $sigmsg = "Shutting down in response to signal {$signo} ({$signame}).";
-    } else {
-      $sigmsg = "Shutting down in response to signal {$signo}.";
-    }
-
-    $this->logMessage('EXIT', $sigmsg, $signo);
-
-    @fflush(STDOUT);
-    @fflush(STDERR);
-    @fclose(STDOUT);
-    @fclose(STDERR);
-    $this->annihilateProcessGroup();
-
-    $this->dispatchEvent(self::EVENT_WILL_EXIT);
-
-    exit(128 + $signo);
-  }
-
-  private function logMessage($type, $message, $context = null) {
-    if (!$this->shouldRunSilently()) {
-      echo date('Y-m-d g:i:s A').' ['.$type.'] '.$message."\n";
-    }
-
-    $this->dispatchEvent(
-      self::EVENT_DID_LOG,
-      array(
-        'type' => $type,
-        'message' => $message,
-        'context' => $context,
-      ));
-  }
-
-  private function shouldRunSilently() {
-    if ($this->traceMode || $this->verbose) {
-      return false;
-    } else {
-      return true;
+    foreach ($this->getDaemonHandles() as $daemon) {
+      $daemon->didReceiveTerminalSignal($signo);
     }
   }
 
-  private function annihilateProcessGroup() {
-    $pid = $this->childPID;
-    $pgid = posix_getpgid($pid);
-    if ($pid && $pgid) {
-
-      // NOTE: On Ubuntu, 'kill' does not recognize the use of "--" to
-      // explicitly delineate PID/PGIDs from signals. We don't actually need it,
-      // so use the implicit "kill -TERM -pgid" form instead of the explicit
-      // "kill -TERM -- -pgid" form.
-      exec("kill -TERM -{$pgid}");
-      sleep($this->killDelay);
-
-      // On OSX, we'll get a permission error on stderr if the SIGTERM was
-      // successful in ending the life of the process group, presumably because
-      // all that's left is the daemon itself as a zombie waiting for us to
-      // reap it. However, we still need to issue this command for process
-      // groups that resist SIGTERM. Rather than trying to figure out if the
-      // process group is still around or not, just SIGKILL unconditionally and
-      // ignore any error which may be raised.
-      exec("kill -KILL -{$pgid} 2>/dev/null");
-      $this->childPID = null;
-    }
+  private function getDaemonHandles() {
+    return ipull($this->daemons, 'handle');
   }
-
-
-  private function gracefulProcessGroup() {
-    $pid = $this->childPID;
-    $pgid = posix_getpgid($pid);
-    if ($pid && $pgid) {
-      exec("kill -INT -{$pgid}");
-    }
-  }
-
 
   /**
    * Identify running daemons by examining the process table. This isn't
@@ -441,12 +417,11 @@ EOHELP
 
     $processes = array_filter(explode("\n", trim($processes)));
     foreach ($processes as $process) {
-      list($pid, $command) = explode(' ', $process, 2);
+      list($pid, $command) = preg_split('/\s+/', trim($process), 2);
 
+      $pattern = '/((launch|exec)_daemon.php|phd-daemon)/';
       $matches = null;
-      if (!preg_match('/((launch|exec)_daemon.php|phd-daemon)/',
-                      $command,
-                      $matches)) {
+      if (!preg_match($pattern, $command, $matches)) {
         continue;
       }
 
@@ -462,46 +437,48 @@ EOHELP
       }
 
       $results[(int)$pid] = array(
-        'type'    => $type,
+        'type' => $type,
         'command' => $command,
-        'pid' => (int) $pid,
+        'pid' => (int)$pid,
       );
     }
 
     return $results;
   }
 
+  private function updatePidfile() {
+    if (!$this->piddir) {
+      return;
+    }
 
-  /**
-   * Generate a unique ID for this daemon.
-   *
-   * @return string A unique daemon ID.
-   */
-  private function generateDaemonID() {
-    return substr(getmypid().':'.Filesystem::readRandomCharacters(12), 0, 12);
-  }
+    $daemons = array();
 
+    foreach ($this->daemons as $daemon) {
+      $handle = $daemon['handle'];
+      $config = $daemon['config'];
 
-  /**
-   * Dispatch an event to event listeners.
-   *
-   * @param  string Event type.
-   * @param  dict   Event parameters.
-   * @return void
-   */
-  private function dispatchEvent($type, array $params = array()) {
-    $data = array(
-      'id' => $this->daemonID,
-      'daemonClass' => $this->daemon,
-      'childPID' => $this->childPID,
-    ) + $params;
+      if (!$handle->isRunning()) {
+        continue;
+      }
 
-    $event = new PhutilEvent($type, $data);
+      $daemons[] = array(
+        'pid' => $handle->getPID(),
+        'id' => $handle->getDaemonID(),
+        'config' => $config,
+      );
+    }
 
-    try {
-      PhutilEventEngine::dispatchEvent($event);
-    } catch (Exception $ex) {
-      phlog($ex);
+    $pidfile = array(
+      'pid' => getmypid(),
+      'start' => $this->startEpoch,
+      'config' => $this->config,
+      'daemons' => $daemons,
+    );
+
+    if ($pidfile !== $this->lastPidfile) {
+      $this->lastPidfile = $pidfile;
+      $pidfile_path = $this->piddir.'/daemon.'.getmypid();
+      Filesystem::writeFile($pidfile_path, json_encode($pidfile));
     }
   }
 

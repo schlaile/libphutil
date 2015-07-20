@@ -420,7 +420,7 @@ function isort(array $list, $index) {
  */
 function mfilter(array $list, $method, $negate = false) {
   if (!is_string($method)) {
-    throw new InvalidArgumentException('Argument method is not a string.');
+    throw new InvalidArgumentException(pht('Argument method is not a string.'));
   }
 
   $result = array();
@@ -465,7 +465,7 @@ function mfilter(array $list, $method, $negate = false) {
  */
 function ifilter(array $list, $index, $negate = false) {
   if (!is_scalar($index)) {
-    throw new InvalidArgumentException('Argument index is not a scalar.');
+    throw new InvalidArgumentException(pht('Argument index is not a scalar.'));
   }
 
   $result = array();
@@ -529,18 +529,23 @@ function assert_instances_of(array $arr, $class) {
       if (!is_array($object)) {
         $given = gettype($object);
         throw new InvalidArgumentException(
-          "Array item with key '{$key}' must be of type array, ".
-          "{$given} given.");
+          pht(
+            "Array item with key '%s' must be of type array, %s given.",
+            $key,
+            $given));
       }
 
     } else if (!($object instanceof $class)) {
       $given = gettype($object);
       if (is_object($object)) {
-        $given = 'instance of '.get_class($object);
+        $given = pht('instance of %s', get_class($object));
       }
       throw new InvalidArgumentException(
-        "Array item with key '{$key}' must be an instance of {$class}, ".
-        "{$given} given.");
+        pht(
+          "Array item with key '%s' must be an instance of %s, %s given.",
+          $key,
+          $class,
+          $given));
     }
   }
 
@@ -576,7 +581,9 @@ function assert_stringlike($parameter) {
   }
 
   throw new InvalidArgumentException(
-    'Argument must be scalar or object which implements __toString()!');
+    pht(
+      'Argument must be scalar or object which implements %s!',
+      '__toString()'));
 }
 
 /**
@@ -735,8 +742,9 @@ function array_mergev(array $arrayv) {
     if (!is_array($item)) {
       throw new InvalidArgumentException(
         pht(
-          'Expected all items passed to array_mergev() to be arrays, but '.
+          'Expected all items passed to %s to be arrays, but '.
           'argument with key "%s" has type "%s".',
+          __FUNCTION__.'()',
           $key,
           gettype($item)));
     }
@@ -846,21 +854,6 @@ function phutil_is_windows() {
 
 function phutil_is_hiphop_runtime() {
   return (array_key_exists('HPHP', $_ENV) && $_ENV['HPHP'] === 1);
-}
-
-/**
- * Fire an event allowing any listeners to clear up any outstanding requirements
- * before the request completes abruptly.
- *
- * @param int|string $status
- */
-function phutil_exit($status = 0) {
-  $event = new PhutilEvent(
-    PhutilEventType::TYPE_WILLEXITABRUPTLY,
-    array('status' => $status));
-  PhutilEventEngine::dispatchEvent($event);
-
-  exit($status);
 }
 
 /**
@@ -991,7 +984,8 @@ function phutil_units($description) {
     throw new InvalidArgumentException(
       pht(
         'Unable to parse unit specification (expected a specification in the '.
-        'form "5 days in seconds"): %s',
+        'form "%s"): %s',
+        '5 days in seconds',
         $description));
   }
 
@@ -1058,6 +1052,182 @@ function phutil_json_decode($string) {
 
 
 /**
+ * Encode a value in JSON, raising an exception if it can not be encoded.
+ *
+ * @param wild A value to encode.
+ * @return string JSON representation of the value.
+ */
+function phutil_json_encode($value) {
+  $result = @json_encode($value);
+  if ($result === false) {
+    $reason = phutil_validate_json($value);
+    if (function_exists('json_last_error')) {
+      $err = json_last_error();
+      if (function_exists('json_last_error_msg')) {
+        $msg = json_last_error_msg();
+        $extra = pht('#%d: %s', $err, $msg);
+      } else {
+        $extra = pht('#%d', $err);
+      }
+    } else {
+      $extra = null;
+    }
+
+    if ($extra) {
+      $message = pht(
+        'Failed to JSON encode value (%s): %s.',
+        $extra,
+        $reason);
+    } else {
+      $message = pht(
+        'Failed to JSON encode value: %s.',
+        $reason);
+    }
+
+    throw new Exception($message);
+  }
+
+  return $result;
+}
+
+
+/**
+ * Produce a human-readable explanation why a value can not be JSON-encoded.
+ *
+ * @param wild Value to validate.
+ * @param string Path within the object to provide context.
+ * @return string|null Explanation of why it can't be encoded, or null.
+ */
+function phutil_validate_json($value, $path = '') {
+  if ($value === null) {
+    return;
+  }
+
+  if ($value === true) {
+    return;
+  }
+
+  if ($value === false) {
+    return;
+  }
+
+  if (is_int($value)) {
+    return;
+  }
+
+  if (is_float($value)) {
+    return;
+  }
+
+  if (is_array($value)) {
+    foreach ($value as $key => $subvalue) {
+      if (strlen($path)) {
+        $full_key = $path.' > ';
+      } else {
+        $full_key = '';
+      }
+
+      if (!phutil_is_utf8($key)) {
+        $full_key = $full_key.phutil_utf8ize($key);
+        return pht(
+          'Dictionary key "%s" is not valid UTF8, and can not be JSON encoded.',
+          $full_key);
+      }
+
+      $full_key .= $key;
+      $result = phutil_validate_json($subvalue, $full_key);
+      if ($result !== null) {
+        return $result;
+      }
+    }
+  }
+
+  if (is_string($value)) {
+    if (!phutil_is_utf8($value)) {
+      $display = substr($value, 0, 256);
+      $display = phutil_utf8ize($display);
+      if (!strlen($path)) {
+        return pht(
+          'String value is not valid UTF8, and can not be JSON encoded: %s',
+          $display);
+      } else {
+        return pht(
+          'Dictionary value at key "%s" is not valid UTF8, and can not be '.
+          'JSON encoded: %s',
+          $path,
+          $display);
+      }
+    }
+  }
+
+  return;
+}
+
+
+/**
+ * Decode an INI string.
+ *
+ * @param  string
+ * @return mixed
+ */
+function phutil_ini_decode($string) {
+  $results = null;
+  $trap = new PhutilErrorTrap();
+
+  try {
+    if (!function_exists('parse_ini_string')) {
+      throw new PhutilMethodNotImplementedException(
+        pht(
+          '%s is not compatible with your version of PHP (%s). This function '.
+          'is only supported on PHP versions newer than 5.3.0.',
+          __FUNCTION__,
+          phpversion()));
+    }
+
+    $results = @parse_ini_string($string, true, INI_SCANNER_RAW);
+
+    if ($results === false) {
+      throw new PhutilINIParserException(trim($trap->getErrorsAsString()));
+    }
+
+    foreach ($results as $section => $result) {
+      if (!is_array($result)) {
+        // We JSON decode the value in ordering to perform the following
+        // conversions:
+        //
+        //   - `'true'` => `true`
+        //   - `'false'` => `false`
+        //   - `'123'` => `123`
+        //   - `'1.234'` => `1.234`
+        //
+        $result = json_decode($result, true);
+
+        if ($result !== null && !is_array($result)) {
+          $results[$section] = $result;
+        }
+
+        continue;
+      }
+
+      foreach ($result as $key => $value) {
+        $value = json_decode($value, true);
+
+        if ($value !== null && !is_array($value)) {
+          $results[$section][$key] = $value;
+        }
+      }
+    }
+  } catch (Exception $ex) {
+    $trap->destroy();
+    throw $ex;
+  }
+
+  $trap->destroy();
+  return $results;
+}
+
+
+/**
  * Attempt to censor any plaintext credentials from a string.
  *
  * The major use case here is to censor usernames and passwords from command
@@ -1120,4 +1290,73 @@ function phutil_var_export($var) {
 
   // Let PHP handle everything else.
   return var_export($var, true);
+}
+
+
+/**
+ * An improved version of `fnmatch`.
+ *
+ * @param  string  A glob pattern.
+ * @param  string  A path.
+ * @return bool
+ */
+function phutil_fnmatch($glob, $path) {
+  // Modify the glob to allow `**/` to match files in the root directory.
+  $glob = preg_replace('@(?:(?<!\\\\)\\*){2}/@', '{,*/,**/}', $glob);
+
+  $escaping = false;
+  $in_curlies = 0;
+  $regex = '';
+
+  for ($i = 0; $i < strlen($glob); $i++) {
+    $char = $glob[$i];
+    $next_char = ($i < strlen($glob) - 1) ? $glob[$i + 1] : null;
+
+    $escape = array('$', '(', ')', '+', '.', '^', '|');
+    $mapping = array();
+
+    if ($escaping) {
+      $escape[] = '*';
+      $escape[] = '?';
+      $escape[] = '{';
+    } else {
+      $mapping['*'] = $next_char === '*' ? '.*' : '[^/]*';
+      $mapping['?'] = '[^/]';
+      $mapping['{'] = '(';
+
+      if ($in_curlies) {
+        $mapping[','] = '|';
+        $mapping['}'] = ')';
+      }
+    }
+
+    if (in_array($char, $escape)) {
+      $regex .= "\\{$char}";
+    } else if ($replacement = idx($mapping, $char)) {
+      $regex .= $replacement;
+    } else if ($char === '\\') {
+      if ($escaping) {
+        $regex .= '\\\\';
+      }
+      $escaping = !$escaping;
+      continue;
+    } else {
+      $regex .= $char;
+    }
+
+    if ($char === '{' && !$escaping) {
+      $in_curlies++;
+    } else if ($char === '}' && $in_curlies && !$escaping) {
+      $in_curlies--;
+    }
+
+    $escaping = false;
+  }
+
+  if ($in_curlies || $escaping) {
+    throw new InvalidArgumentException(pht('Invalid glob pattern.'));
+  }
+
+  $regex = '(\A'.$regex.'\z)';
+  return (bool)preg_match($regex, $path);
 }

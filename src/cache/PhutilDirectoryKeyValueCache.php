@@ -169,8 +169,7 @@ final class PhutilDirectoryKeyValueCache extends PhutilKeyValueCache {
    */
   private function getCacheDirectory() {
     if (!$this->cacheDirectory) {
-      throw new Exception(
-        'Call setCacheDirectory() before using a directory cache!');
+      throw new PhutilInvalidStateException('setCacheDirectory');
     }
     return $this->cacheDirectory;
   }
@@ -199,8 +198,10 @@ final class PhutilDirectoryKeyValueCache extends PhutilKeyValueCache {
       // Use of "_" is reserved for converting ":".
       if (!preg_match('@^[a-zA-Z0-9/:-]+$@', $key)) {
         throw new Exception(
-          "Invalid key '{$key}': directory caches may only contain letters, ".
-          "numbers, hyphen, colon and slash.");
+          pht(
+            "Invalid key '%s': directory caches may only contain letters, ".
+            "numbers, hyphen, colon and slash.",
+            $key));
       }
     }
   }
@@ -211,7 +212,10 @@ final class PhutilDirectoryKeyValueCache extends PhutilKeyValueCache {
    */
   private function lockCache($wait = 0) {
     if ($this->lock) {
-      throw new Exception('Trying to lockCache() with a lock!');
+      throw new Exception(
+        pht(
+          'Trying to %s with a lock!',
+          __FUNCTION__.'()'));
     }
 
     if (!Filesystem::pathExists($this->getCacheDirectory())) {
@@ -230,8 +234,7 @@ final class PhutilDirectoryKeyValueCache extends PhutilKeyValueCache {
    */
   private function unlockCache() {
     if (!$this->lock) {
-      throw new Exception(
-        'Call lockCache() before unlockCache()!');
+      throw new PhutilInvalidStateException('lockCache');
     }
 
     $this->lock->unlock();

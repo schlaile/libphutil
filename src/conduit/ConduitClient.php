@@ -1,8 +1,9 @@
 <?php
 
-final class ConduitClient {
+final class ConduitClient extends Phobject {
 
   private $uri;
+  private $host;
   private $connectionID;
   private $sessionKey;
   private $timeout = 300.0;
@@ -10,6 +11,7 @@ final class ConduitClient {
   private $password;
   private $publicKey;
   private $privateKey;
+  private $conduitToken;
 
   const AUTH_ASYMMETRIC = 'asymmetric';
 
@@ -22,8 +24,34 @@ final class ConduitClient {
   public function __construct($uri) {
     $this->uri = new PhutilURI($uri);
     if (!strlen($this->uri->getDomain())) {
-      throw new Exception("Conduit URI '{$uri}' must include a valid host.");
+      throw new Exception(
+        pht("Conduit URI '%s' must include a valid host.", $uri));
     }
+    $this->host = $this->uri->getDomain();
+  }
+
+  /**
+   * Override the domain specified in the service URI and provide a specific
+   * host identity.
+   *
+   * This can be used to connect to a specific node in a cluster environment.
+   */
+  public function setHost($host) {
+    $this->host = $host;
+    return $this;
+  }
+
+  public function getHost() {
+    return $this->host;
+  }
+
+  public function setConduitToken($conduit_token) {
+    $this->conduitToken = $conduit_token;
+    return $this;
+  }
+
+  public function getConduitToken() {
+    return $this->conduitToken;
   }
 
   public function callMethodSynchronous($method, array $params) {
@@ -83,6 +111,10 @@ final class ConduitClient {
       $meta['auth.signature'] = $signature;
     }
 
+    if ($this->conduitToken) {
+      $meta['token'] = $this->conduitToken;
+    }
+
     if ($meta) {
       $params['__conduit__'] = $meta;
     }
@@ -102,6 +134,7 @@ final class ConduitClient {
     // Always use the cURL-based HTTPSFuture, for proxy support and other
     // protocol edge cases that HTTPFuture does not support.
     $core_future = new HTTPSFuture($uri, $data);
+    $core_future->addHeader('Host', $this->getHost());
 
     $core_future->setMethod('POST');
     $core_future->setTimeout($this->timeout);
@@ -127,8 +160,9 @@ final class ConduitClient {
   }
 
   private function getHostString() {
+    $host = $this->getHost();
+
     $uri = new PhutilURI($this->uri);
-    $host = $uri->getDomain();
     $port = $uri->getPort();
     if (!$port) {
       switch ($uri->getProtocol()) {
@@ -160,7 +194,8 @@ final class ConduitClient {
       $signature,
       $this->privateKey->openEnvelope());
     if (!$result) {
-      throw new Exception('Unable to sign Conduit request with signing key.');
+      throw new Exception(
+        pht('Unable to sign Conduit request with signing key.'));
     }
 
     return self::SIGNATURE_CONSIGN_1.base64_encode($signature);
@@ -179,8 +214,9 @@ final class ConduitClient {
       default:
         throw new Exception(
           pht(
-            'Unable to verify request signature, specified "auth.type" '.
+            'Unable to verify request signature, specified "%s" '.
             '("%s") is unknown.',
+            'auth.type',
             $auth_type));
     }
 
@@ -188,16 +224,18 @@ final class ConduitClient {
     if (!strlen($public_key)) {
       throw new Exception(
         pht(
-          'Unable to verify request signature, no "auth.key" present in '.
-          'request protocol information.'));
+          'Unable to verify request signature, no "%s" present in '.
+          'request protocol information.',
+          'auth.key'));
     }
 
     $signature = idx($meta, 'auth.signature');
     if (!strlen($signature)) {
       throw new Exception(
         pht(
-          'Unable to verify request signature, no "auth.signature" present '.
-          'in request protocol information.'));
+          'Unable to verify request signature, no "%s" present '.
+          'in request protocol information.',
+          'auth.signature'));
     }
 
     $prefix = self::SIGNATURE_CONSIGN_1;
@@ -237,13 +275,12 @@ final class ConduitClient {
       if (strlen($err)) {
         throw new Exception(
           pht(
-            'OpenSSL encountered an error verifying the request signature: '.
-            '%s',
+            'OpenSSL encountered an error verifying the request signature: %s',
             $err));
       } else {
         throw new Exception(
           pht(
-            'OpenSSL encountered an unknown error verifying the request.',
+            'OpenSSL encountered an unknown error verifying the request: %s',
             $err));
       }
     }
@@ -291,7 +328,7 @@ final class ConduitClient {
       $out[] = strlen($data);
       $out[] = ':';
       $out[] = $data;
-    } else if (is_integer($data)) {
+    } else if (is_int($data)) {
       $out[] = 'I';
       $out[] = strlen((string)$data);
       $out[] = ':';

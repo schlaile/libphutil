@@ -1,6 +1,6 @@
 <?php
 
-final class PhutilPygmentsSyntaxHighlighter {
+final class PhutilPygmentsSyntaxHighlighter extends Phobject {
 
   private $config = array();
 
@@ -171,6 +171,7 @@ final class PhutilPygmentsSyntaxHighlighter {
       'rbx' => 'rb',
       'rest' => 'rst',
       'rl' => 'ragel-em',
+      'robot' => 'robotframework',
       'Rout' => 'rconsole',
       'rss' => 'xml',
       's' => 'gas',
@@ -194,6 +195,7 @@ final class PhutilPygmentsSyntaxHighlighter {
       'vapi' => 'vala',
       'vb' => 'vb.net',
       'vert' => 'glsl',
+      'vhd' => 'vhdl',
       'vimrc' => 'vim',
       'vm' => 'velocity',
       'weechatlog' => 'irc',

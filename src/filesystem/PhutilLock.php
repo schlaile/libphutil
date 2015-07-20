@@ -25,7 +25,7 @@
  * @task  lock        Locking
  * @task  internal    Internals
  */
-abstract class PhutilLock {
+abstract class PhutilLock extends Phobject {
 
   private static $registeredShutdownFunction = false;
   private static $locks = array();
@@ -104,13 +104,14 @@ abstract class PhutilLock {
    */
   protected static function registerLock(PhutilLock $lock) {
     if (!self::$registeredShutdownFunction) {
-      register_shutdown_function(array('PhutilLock', 'unlockAll'));
+      register_shutdown_function(array(__CLASS__, 'unlockAll'));
       self::$registeredShutdownFunction = true;
     }
 
     $name = $lock->getName();
     if (self::getLock($name)) {
-      throw new Exception("Lock '{$name}' is already registered!");
+      throw new Exception(
+        pht("Lock '%s' is already registered!", $name));
     }
 
     self::$locks[$name] = $lock;
@@ -153,7 +154,7 @@ abstract class PhutilLock {
     if ($this->locked) {
       $name = $this->getName();
       throw new Exception(
-        "Lock '{$name}' has already been locked by this process.");
+        pht("Lock '%s' has already been locked by this process.", $name));
     }
 
     $profiler = PhutilServiceProfiler::getInstance();
@@ -193,7 +194,7 @@ abstract class PhutilLock {
     if (!$this->locked) {
       $name = $this->getName();
       throw new Exception(
-        "Lock '{$name} is not locked by this process!");
+        pht("Lock '%s is not locked by this process!", $name));
     }
 
     $this->doUnlock();

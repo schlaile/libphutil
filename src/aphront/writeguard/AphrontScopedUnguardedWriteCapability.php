@@ -1,8 +1,8 @@
 <?php
 
-final class AphrontScopedUnguardedWriteCapability {
+final class AphrontScopedUnguardedWriteCapability extends Phobject {
 
-  final public function __destruct() {
+  public function __destruct() {
     AphrontWriteGuard::endUnguardedWrites();
   }
 

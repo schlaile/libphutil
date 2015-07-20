@@ -45,6 +45,10 @@ final class ExecFuture extends Future {
   private $profilerCallID;
   private $killedByTimeout;
 
+  private $useWindowsFileStreams = false;
+  private $windowsStdoutTempFile = null;
+  private $windowsStderrTempFile = null;
+
   private static $descriptorSpec = array(
     0 => array('pipe', 'r'),  // stdin
     1 => array('pipe', 'w'),  // stdout
@@ -229,6 +233,21 @@ final class ExecFuture extends Future {
   }
 
 
+  /**
+   * Set whether to use non-blocking streams on Windows.
+   *
+   * @param bool Whether to use non-blocking streams.
+   * @return this
+   * @task config
+   */
+  public function setUseWindowsFileStreams($use_streams) {
+    if (phutil_is_windows()) {
+      $this->useWindowsFileStreams = $use_streams;
+    }
+    return $this;
+  }
+
+
 /* -(  Interacting With Commands  )------------------------------------------ */
 
 
@@ -395,7 +414,7 @@ final class ExecFuture extends Future {
     if ($err) {
       $cmd = $this->command;
       throw new CommandException(
-        "Command failed with error #{$err}!",
+        pht('Command failed with error #%d!', $err),
         $cmd,
         $err,
         $stdout,
@@ -420,25 +439,29 @@ final class ExecFuture extends Future {
     if (strlen($stderr)) {
       $cmd = $this->command;
       throw new CommandException(
-        "JSON command '{$cmd}' emitted text to stderr when none was expected: ".
-        $stderr,
+        pht(
+          "JSON command '%s' emitted text to stderr when none was expected: %d",
+          $cmd,
+          $stderr),
         $cmd,
         0,
         $stdout,
         $stderr);
     }
-    $object = json_decode($stdout, true);
-    if (!is_array($object)) {
+    try {
+      return phutil_json_decode($stdout);
+    } catch (PhutilJSONParserException $ex) {
       $cmd = $this->command;
       throw new CommandException(
-        "JSON command '{$cmd}' did not produce a valid JSON object on stdout: ".
-        $stdout,
+        pht(
+          "JSON command '%s' did not produce a valid JSON object on stdout: %s",
+          $cmd,
+          $stdout),
         $cmd,
         0,
         $stdout,
         $stderr);
     }
-    return $object;
   }
 
   /**
@@ -566,7 +589,7 @@ final class ExecFuture extends Future {
     do {
       $data = fread($stream, min($length, 64 * 1024));
       if (false === $data) {
-        throw new Exception('Failed to read from '.$description);
+        throw new Exception(pht('Failed to read from %s', $description));
       }
 
       $read_bytes = strlen($data);
@@ -636,6 +659,26 @@ final class ExecFuture extends Future {
         }
       }
 
+
+      // NOTE: Convert all the environmental variables we're going to pass
+      // into strings before we install PhutilErrorTrap. If something in here
+      // is really an object which is going to throw when we try to turn it
+      // into a string, we want the exception to escape here -- not after we
+      // start trapping errors.
+      $env = $this->env;
+      if ($env !== null) {
+        foreach ($env as $key => $value) {
+          $env[$key] = (string)$value;
+        }
+      }
+
+      // Same for the working directory.
+      if ($this->cwd === null) {
+        $cwd = null;
+      } else {
+        $cwd = (string)$this->cwd;
+      }
+
       // NOTE: See note above about Phage.
       if (class_exists('PhutilErrorTrap')) {
         $trap = new PhutilErrorTrap();
@@ -643,12 +686,46 @@ final class ExecFuture extends Future {
         $trap = null;
       }
 
+      $spec = self::$descriptorSpec;
+      if ($this->useWindowsFileStreams) {
+        $this->windowsStdoutTempFile = new TempFile();
+        $this->windowsStderrTempFile = new TempFile();
+
+        $spec = array(
+          0 => self::$descriptorSpec[0],  // stdin
+          1 => fopen($this->windowsStdoutTempFile, 'wb'),  // stdout
+          2 => fopen($this->windowsStderrTempFile, 'wb'),  // stderr
+        );
+
+        if (!$spec[1] || !$spec[2]) {
+          throw new Exception(pht(
+            'Unable to create temporary files for '.
+            'Windows stdout / stderr streams'));
+        }
+      }
+
       $proc = @proc_open(
         $unmasked_command,
-        self::$descriptorSpec,
+        $spec,
         $pipes,
-        $this->cwd,
-        $this->env);
+        $cwd,
+        $env);
+
+      if ($this->useWindowsFileStreams) {
+        fclose($spec[1]);
+        fclose($spec[2]);
+        $pipes = array(
+          0 => head($pipes),  // stdin
+          1 => fopen($this->windowsStdoutTempFile, 'rb'),  // stdout
+          2 => fopen($this->windowsStderrTempFile, 'rb'),  // stderr
+        );
+
+        if (!$pipes[1] || !$pipes[2]) {
+          throw new Exception(pht(
+            'Unable to open temporary files for '.
+            'reading Windows stdout / stderr streams'));
+        }
+      }
 
       if ($trap) {
         $err = $trap->getErrorsAsString();
@@ -658,7 +735,11 @@ final class ExecFuture extends Future {
       }
 
       if (!is_resource($proc)) {
-        throw new Exception("Failed to proc_open(): {$err}");
+        throw new Exception(
+          pht(
+            'Failed to %s: %s',
+            'proc_open()',
+            $err));
       }
 
       $this->pipes = $pipes;
@@ -668,15 +749,15 @@ final class ExecFuture extends Future {
 
       if (!phutil_is_windows()) {
 
-        // On Windows, there's no such thing as nonblocking interprocess I/O.
-        // Just leave the sockets blocking and hope for the best. Some features
-        // will not work.
+        // On Windows, we redirect process standard output and standard error
+        // through temporary files, and then use stream_select to determine
+        // if there's more data to read.
 
         if ((!stream_set_blocking($stdout, false)) ||
             (!stream_set_blocking($stderr, false)) ||
             (!stream_set_blocking($stdin,  false))) {
           $this->__destruct();
-          throw new Exception('Failed to set streams nonblocking.');
+          throw new Exception(pht('Failed to set streams nonblocking.'));
         }
       }
 
@@ -696,7 +777,7 @@ final class ExecFuture extends Future {
 
       $bytes = fwrite($stdin, $write_segment);
       if ($bytes === false) {
-        throw new Exception('Unable to write to stdin!');
+        throw new Exception(pht('Unable to write to stdin!'));
       } else if ($bytes) {
         $this->stdin->removeBytesFromHead($bytes);
       } else {
@@ -737,6 +818,11 @@ final class ExecFuture extends Future {
     }
 
     if (!$status['running']) {
+      if ($this->useWindowsFileStreams) {
+        fclose($stdout);
+        fclose($stderr);
+      }
+
       $this->result = array(
         $status['exitcode'],
         $this->stdout,

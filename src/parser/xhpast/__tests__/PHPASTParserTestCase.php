@@ -3,8 +3,13 @@
 final class PHPASTParserTestCase extends PhutilTestCase {
 
   public function testParser() {
-    if (!xhpast_is_available()) {
-      $this->assertSkipped(pht('xhpast is not built or not up to date.'));
+    if (!PhutilXHPASTBinary::isAvailable()) {
+      try {
+        PhutilXHPASTBinary::build();
+      } catch (Exception $ex) {
+        $this->assertSkipped(
+          pht('%s is not built or not up to date.', 'xhpast'));
+      }
     }
 
     $dir = dirname(__FILE__).'/data/';
@@ -47,7 +52,7 @@ final class PHPASTParserTestCase extends PhutilTestCase {
           if ($type !== null) {
             throw new Exception(
               pht(
-                'Test file "%s" unexpectedly specifies multiple expected ',
+                'Test file "%s" unexpectedly specifies multiple expected '.
                 'test outcomes.',
                 $name));
           }
@@ -78,7 +83,7 @@ final class PHPASTParserTestCase extends PhutilTestCase {
           $name));
     }
 
-    $future = xhpast_get_parser_future($body);
+    $future = PhutilXHPASTBinary::getParserFuture($body);
     list($err, $stdout, $stderr) = $future->resolve();
 
     switch ($type) {
@@ -91,21 +96,25 @@ final class PHPASTParserTestCase extends PhutilTestCase {
         $dir = dirname(__FILE__).'/data/';
         $expect = Filesystem::readFile($dir.$expect_name);
 
-        $expect = json_decode($expect, true);
-        if (!is_array($expect)) {
-          throw new Exception(
+        try {
+          $expect = phutil_json_decode($expect);
+        } catch (PhutilJSONParserException $ex) {
+          throw new PhutilProxyException(
             pht(
               'Test ".expect" file "%s" for test "%s" is not valid JSON.',
               $expect_name,
-              $name));
+              $name),
+            $ex);
         }
 
-        $stdout = json_decode($stdout, true);
-        if (!is_array($stdout)) {
-          throw new Exception(
+        try {
+          $stdout = phutil_json_decode($stdout);
+        } catch (PhutilJSONParserException $ex) {
+          throw new PhutilProxyException(
             pht(
               'Output for test file "%s" is not valid JSON.',
-              $name));
+              $name),
+            $ex);
         }
 
         $json = new PhutilJSON();
