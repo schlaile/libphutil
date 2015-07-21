@@ -82,6 +82,22 @@ abstract class PhutilTranslation extends Phobject {
     return $results;
   }
 
+  public static function getTranslatorForLocale($locale_code) {
+    $locale = PhutilLocale::loadLocale($locale_code);
+
+    $translations = self::loadAllTranslations();
+
+    $results = array();
+    foreach ($translations as $translation) {
+	    if ($translation->getLocaleCode() == $locale_code) {
+		    if ($translation->getTranslator() !== false) {
+			    return $translation->getTranslator();
+		    }
+	    }
+    }
+    return false;
+  }
+
   public function getTranslator() {
     return false;
   }

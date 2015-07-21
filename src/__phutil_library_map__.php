@@ -687,6 +687,7 @@ phutil_register_library_map(array(
     'PhutilFileLock' => 'PhutilLock',
     'PhutilFileLockTestCase' => 'PhutilTestCase',
     'PhutilFileTree' => 'Phobject',
+    'PhutilGermanLocale' => 'PhutilLocale',
     'PhutilGitHubAuthAdapter' => 'PhutilOAuthAuthAdapter',
     'PhutilGitURI' => 'Phobject',
     'PhutilGitURITestCase' => 'PhutilTestCase',

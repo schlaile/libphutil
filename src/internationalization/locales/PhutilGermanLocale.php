@@ -3,7 +3,7 @@
 /**
  * The german locale.
  */
-final class PhutilUSEnglishLocale extends PhutilLocale {
+final class PhutilGermanLocale extends PhutilLocale {
 
   public function getLocaleCode() {
     return 'de_DE';
