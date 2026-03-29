@@ -573,7 +573,7 @@ phutil_register_library_map(array(
     'PhageAgentTestCase' => 'PhutilTestCase',
     'PhagePHPAgent' => 'Phobject',
     'PhagePHPAgentBootloader' => 'PhageAgentBootloader',
-    'Phobject' => 'Iterator',
+    'Phobject' => 'IteratorAggregate',
     'PhobjectTestCase' => 'PhutilTestCase',
     'PhutilAPCKeyValueCache' => 'PhutilKeyValueCache',
     'PhutilAWSEC2Future' => 'PhutilAWSFuture',

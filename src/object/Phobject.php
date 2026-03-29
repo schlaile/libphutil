@@ -17,7 +17,7 @@
  * (Legitimately iterable subclasses can provide a working implementation of
  * Iterator instead.)
  */
-abstract class Phobject implements Iterator {
+abstract class Phobject implements IteratorAggregate {
 
   public function __get($name) {
     throw new DomainException(
@@ -33,23 +33,7 @@ abstract class Phobject implements Iterator {
         get_class($this).'::'.$name));
   }
 
-  public function current() {
-    $this->throwOnAttemptedIteration();
-  }
-
-  public function key() {
-    $this->throwOnAttemptedIteration();
-  }
-
-  public function next() {
-    $this->throwOnAttemptedIteration();
-  }
-
-  public function rewind() {
-    $this->throwOnAttemptedIteration();
-  }
-
-  public function valid() {
+  public function getIterator(): Traversable {
     $this->throwOnAttemptedIteration();
   }
 
