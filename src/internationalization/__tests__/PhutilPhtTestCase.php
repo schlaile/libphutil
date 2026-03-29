@@ -28,6 +28,16 @@ final class PhutilPhtTestCase extends PhutilTestCase {
       ));
 
     $this->assertEqual('5 piv', pht('%d beer(s)', 5));
+
+    $german_locale = PhutilLocale::loadLocale('de_DE');
+    PhutilTranslator::getInstance()->setLocale($german_locale);
+    PhutilTranslator::getInstance()->setTranslations(
+      array(
+        '%d beer(s)' => array('%d Bier', '%d Biere'),
+      ));
+
+    $this->assertEqual('1 Bier', pht('%d beer(s)', 1));
+    $this->assertEqual('4 Biere', pht('%d beer(s)', 4));
   }
 
   public function getDateTranslations() {

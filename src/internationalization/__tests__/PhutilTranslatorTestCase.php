@@ -67,6 +67,29 @@ final class PhutilTranslatorTestCase extends PhutilTestCase {
     $this->assertEqual('1 line(s)', $translator->translate('%d line(s)', 1));
   }
 
+  public function testGerman() {
+    $translator = $this->newTranslator('de_DE');
+    $translator->setTranslations(
+      array(
+        '%d beer(s)' => array('%d Bier', '%d Biere'),
+        '%d char(s) on %d row(s)' => array(
+          array('%d Zeichen auf %d Zeile', '%d Zeichen auf %d Zeilen'),
+          array('%d Zeichen auf %d Zeile', '%d Zeichen auf %d Zeilen'),
+        ),
+      ));
+
+    $this->assertEqual('0 Biere', $translator->translate('%d beer(s)', 0));
+    $this->assertEqual('1 Bier', $translator->translate('%d beer(s)', 1));
+    $this->assertEqual('2 Biere', $translator->translate('%d beer(s)', 2));
+
+    $this->assertEqual(
+      '1 Zeichen auf 1 Zeile',
+      $translator->translate('%d char(s) on %d row(s)', 1, 1));
+    $this->assertEqual(
+      '5 Zeichen auf 2 Zeilen',
+      $translator->translate('%d char(s) on %d row(s)', 5, 2));
+  }
+
   public function testPerson() {
     $translator = $this->newTranslator('cs_CZ');
     $translator->setTranslations(
