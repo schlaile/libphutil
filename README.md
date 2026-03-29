@@ -1,3 +1,8 @@
+NOTE: In this local workspace, this repository is primarily a legacy/reference
+tree. For current upstream-facing work, prefer `phorge-arcanist` (for former
+libphutil-layer code) or `phorge` (for server/core code). Do not default to
+making changes here unless explicitly asked.
+
 `libphutil` is a collection of utility classes and functions for PHP. Some
 features of the library include:
 
