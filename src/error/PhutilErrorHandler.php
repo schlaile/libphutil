@@ -176,11 +176,11 @@ final class PhutilErrorHandler extends Phobject {
    * @param string Error message.
    * @param string File where the error occurred.
    * @param int Line on which the error occurred.
-   * @param wild Error context information.
+   * @param wild|null Error context information, when available.
    * @return void
    * @task internal
    */
-  public static function handleError($num, $str, $file, $line, $ctx) {
+  public static function handleError($num, $str, $file, $line, $ctx = null) {
 
     foreach (self::$traps as $trap) {
       $trap->addError($num, $str, $file, $line, $ctx);
